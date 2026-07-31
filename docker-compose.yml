@@ -1,0 +1,18 @@
+services:
+  plutopoint-ase-manager:
+    image: professorshroom/plutopoint-ase-server-manager:latest
+    container_name: plutopoint-ase-server-manager
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # WebUI Port
+      - "7777:7777/udp" # ARK Game Port
+      - "27015:27015/udp" # Steam Query Port
+      - "27020:27020/udp" # RCON Port
+    volumes:
+      - ./ark_data:/data # Change this to your desired data directory
+      - ./backup:/backup # Change this to your desired backup location
+    environment:
+      - PORT=3000
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London # Change this to your timezone

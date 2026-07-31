@@ -1,0 +1,2094 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PlutoPoint ASE Server Manager</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+      <div
+        class="bg-slate-800 p-8 rounded-xl shadow-2xl w-96 border border-slate-700"
+      >
+        <h1 class="text-2xl font-bold mb-6 text-center text-cyan-400">
+          PlutoPoint ASE Server Manager Login
+        </h1>
+        <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Username</label>
+            <input
+              type="text"
+              id="login-username"
+              autocomplete="off"
+              required
+              class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Password</label>
+            <input
+              type="password"
+              id="login-password"
+              autocomplete="new-password"
+              required
+              class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+            />
+          </div>
+          <div id="login-error" class="text-red-400 text-sm hidden"></div>
+          <button
+            type="submit"
+            class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 rounded transition"
+          >
+            Log In
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main Application View -->
+    <div id="app-view" class="hidden flex h-screen overflow-hidden">
+      <!-- Sidebar -->
+      <aside
+        class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col justify-between"
+      >
+        <div>
+          <div
+            class="p-4 border-b border-slate-700 font-bold text-cyan-400 text-lg"
+          >
+            PlutoPoint ASE Server Manager
+          </div>
+          <div class="p-4 border-b border-slate-700">
+            <div class="flex items-center justify-between mb-2">
+              <label
+                class="text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                >Servers</label
+              >
+              <button
+                onclick="openAddServerModal()"
+                class="bg-cyan-600 hover:bg-cyan-500 text-white w-6 h-6 rounded flex items-center justify-center text-sm font-bold transition"
+              >
+                +
+              </button>
+            </div>
+            <div
+              id="server-list"
+              class="space-y-1 max-h-48 overflow-y-auto mt-2"
+            >
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+          <nav class="space-y-1 p-4">
+            <button
+              onclick="switchTab('dashboard')"
+              class="w-full text-left px-3 py-2 rounded hover:bg-slate-700 text-sm font-medium text-cyan-400 tab-btn"
+              data-tab="dashboard"
+            >
+              Dashboard
+            </button>
+            <button
+              onclick="switchTab('settings')"
+              class="w-full text-left px-3 py-2 rounded hover:bg-slate-700 text-sm font-medium text-slate-300 tab-btn"
+              data-tab="settings"
+            >
+              Configuration & Mods
+            </button>
+            <button
+              onclick="switchTab('backups')"
+              class="w-full text-left px-3 py-2 rounded hover:bg-slate-700 text-sm font-medium text-slate-300 tab-btn"
+              data-tab="backups"
+            >
+              Backups & Restore
+            </button>
+            <button
+              onclick="switchTab('users')"
+              id="nav-users"
+              class="w-full text-left px-3 py-2 rounded hover:bg-slate-700 text-sm font-medium text-slate-300 tab-btn hidden"
+              data-tab="users"
+            >
+              User Management
+            </button>
+          </nav>
+        </div>
+        <div
+          class="p-4 border-t border-slate-700 flex items-center justify-between"
+        >
+          <span
+            id="current-user"
+            class="text-sm text-slate-400 truncate"
+          ></span>
+          <button
+            onclick="handleLogout()"
+            class="text-xs text-red-400 hover:underline"
+          >
+            Log Out
+          </button>
+        </div>
+      </aside>
+
+      <!-- Content Area -->
+      <main class="flex-1 overflow-y-auto p-8 relative">
+        <!-- Empty State / No Servers Notice -->
+        <div
+          id="no-servers-state"
+          class="hidden flex flex-col items-center justify-center h-full space-y-4"
+        >
+          <div class="text-xl text-slate-400 font-medium">
+            No servers found. Click the
+            <span class="text-cyan-400 font-bold">+</span> button in the sidebar
+            to add your first ARK server!
+          </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="tab-content space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-bold">Dashboard</h2>
+            <!-- Server Status Badge -->
+            <div
+              id="server-status-badge"
+              class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-700 text-slate-300"
+            >
+              Status: Checking...
+            </div>
+          </div>
+
+          <!-- Server Controls -->
+          <div
+            class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4"
+          >
+            <h3 class="text-lg font-semibold text-cyan-400">Server Controls</h3>
+            <div class="flex flex-wrap gap-3">
+              <button
+                onclick="controlServer('start')"
+                class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-medium transition"
+              >
+                Start Server
+              </button>
+              <button
+                onclick="controlServer('stop')"
+                class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-medium transition"
+              >
+                Stop Server
+              </button>
+              <button
+                onclick="controlServer('restart')"
+                class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded font-medium transition"
+              >
+                Restart Server
+              </button>
+            </div>
+            <div
+              class="flex items-center space-x-2 pt-2 border-t border-slate-700"
+            >
+              <input
+                type="checkbox"
+                id="dashboard-server-autostart"
+                onchange="toggleAutoStart(this.checked)"
+                class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+              />
+              <label class="text-sm font-medium"
+                >Start server on container startup</label
+              >
+            </div>
+          </div>
+          <!-- Live Server Terminal View -->
+          <div
+            class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4"
+          >
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-cyan-400">
+                Live Server Console
+              </h3>
+              <button
+                onclick="clearTerminalView()"
+                class="text-xs text-slate-400 hover:text-white underline"
+              >
+                Clear View
+              </button>
+            </div>
+            <pre
+              id="server-terminal-output"
+              class="bg-slate-900 p-4 rounded border border-slate-700 text-xs font-mono text-emerald-400 h-80 overflow-y-auto whitespace-pre-wrap"
+            ></pre>
+          </div>
+
+          <!-- Server Status / Action Box -->
+          <div
+            class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-semibold">
+                  Server Installation Status
+                </h3>
+                <p id="install-status-text" class="text-sm text-slate-400">
+                  Checking files...
+                </p>
+              </div>
+              <button
+                id="btn-install"
+                onclick="installServer()"
+                class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-medium transition"
+              >
+                Install / Update via SteamCMD
+              </button>
+            </div>
+            <!-- Progress Terminal Output -->
+            <div id="install-progress-container" class="hidden space-y-2">
+              <pre
+                id="install-log-output"
+                class="bg-slate-900 p-4 rounded border border-slate-700 text-xs font-mono text-cyan-300 h-64 overflow-y-auto whitespace-pre-wrap"
+              ></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backups Tab -->
+        <div id="tab-backups" class="tab-content hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-bold">Backups & Restore</h2>
+            <button
+              onclick="triggerBackup()"
+              class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-medium transition"
+            >
+              Create Backup Now
+            </button>
+          </div>
+
+          <!-- Backup Schedule & Retention Settings -->
+          <div
+            class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4"
+          >
+            <h3 class="text-lg font-semibold text-cyan-400">
+              Automated Schedule & Retention
+            </h3>
+            <form
+              onsubmit="saveBackupSettings(event)"
+              class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
+            >
+              <div>
+                <label class="block text-sm font-medium mb-1"
+                  >Backup Frequency (Hours)</label
+                >
+                <input
+                  type="number"
+                  step="0.5"
+                  id="backup-frequency"
+                  placeholder="e.g. 12"
+                  class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                />
+                <p class="text-xs text-slate-400 mt-1">
+                  Set to 0 to disable auto-backups.
+                </p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1"
+                  >Retention Limit</label
+                >
+                <input
+                  type="number"
+                  id="backup-retention"
+                  placeholder="e.g. 5"
+                  class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                />
+                <p class="text-xs text-slate-400 mt-1">
+                  Number of backups to keep (0 for infinite).
+                </p>
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  class="bg-cyan-600 hover:bg-cyan-500 text-white font-medium px-4 py-2 rounded transition w-full"
+                >
+                  Save Schedule
+                </button>
+                <!-- Invisible spacer matches the helper text height exactly -->
+                <p class="text-xs mt-1 invisible" aria-hidden="true">Spacer</p>
+              </div>
+            </form>
+          </div>
+
+          <!-- Backup List -->
+          <div
+            class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4"
+          >
+            <h3 class="text-lg font-semibold text-cyan-400">
+              Available Backups
+            </h3>
+            <div id="backup-list" class="space-y-2 max-h-96 overflow-y-auto">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="tab-settings" class="tab-content hidden space-y-6">
+          <h2 class="text-2xl font-bold">Server Settings & Workshop Mods</h2>
+          <form
+            id="settings-form"
+            onsubmit="saveSettings(event)"
+            class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6"
+          >
+            <!-- General Settings -->
+            <div>
+              <h3 class="text-md font-semibold text-cyan-400 mb-3">
+                General Settings
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Session / Server Name</label
+                  >
+                  <input
+                    type="text"
+                    id="cfg-sessionName"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+
+                <div class="mb-3">
+                  <label for="serverMap" class="block text-sm font-medium mb-1"
+                    >Server Map</label
+                  >
+                  <select
+                    id="cfg-serverMap"
+                    name="serverMap"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  >
+                    <option value="TheIsland">TheIsland</option>
+                    <option value="TheCenter">TheCenter</option>
+                    <option value="ScorchedEarth_P">ScorchedEarth_P</option>
+                    <option value="Ragnarok">Ragnarok</option>
+                    <option value="Valguero_P">Valguero_P</option>
+                    <option value="CrystalIsles">CrystalIsles</option>
+                    <option value="LostIsland">LostIsland</option>
+                    <option value="Fjordur">Fjordur</option>
+                    <option value="Aberration_P">Aberration_P</option>
+                    <option value="Extinction">Extinction</option>
+                    <option value="Genesis">Genesis</option>
+                    <option value="Gen2">Gen2</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Max Players</label
+                  >
+                  <input
+                    type="number"
+                    id="cfg-maxPlayers"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Server Password</label
+                  >
+                  <input
+                    type="text"
+                    id="cfg-serverPassword"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Admin Password</label
+                  >
+                  <input
+                    type="text"
+                    id="cfg-serverAdminPassword"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >RCON Port</label
+                  >
+                  <input
+                    type="number"
+                    id="cfg-rconPort"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Difficulty Offset</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-difficultyOffset"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Override Official Difficulty</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-overrideOfficialDifficulty"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Max Tamed Dinos</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-maxTamedDinos"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Item Stack Size Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-itemStackSizeMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Auto Save Period (Minutes)</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-autoSavePeriodMinutes"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Message of the Day -->
+            <div class="border-t border-slate-700 pt-4">
+              <h3 class="text-md font-semibold text-cyan-400 mb-3">
+                Message of the Day (MOTD)
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-3">
+                  <label class="block text-sm font-medium mb-1"
+                    >Message Text</label
+                  >
+                  <input
+                    type="text"
+                    id="cfg-motdMessage"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Duration (Seconds)</label
+                  >
+                  <input
+                    type="number"
+                    id="cfg-motdDuration"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Gameplay & Rates Multipliers -->
+            <div class="border-t border-slate-700 pt-4">
+              <h3 class="text-md font-semibold text-cyan-400 mb-3">
+                Gameplay & Rates Multipliers
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Taming Speed Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-tamingSpeedMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Harvest Amount Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-harvestAmountMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Harvest Health Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-harvestHealthMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >XP Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-genericXPMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Craft XP Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-craftXPMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Harvest XP Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-harvestXPMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Kill XP Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-killXPMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Special XP Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-specialXPMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Crafting Skill Bonus Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-craftingSkillBonusMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Lay Egg Interval Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-layEggIntervalMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Mating Interval Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-matingIntervalMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Egg Hatch Speed Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-eggHatchSpeedMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Baby Mature Speed Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-babyMatureSpeedMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Baby Food Consumption Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-babyFoodConsumptionSpeedMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Baby Cuddle Interval Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-babyCuddleIntervalMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Night Time Speed Scale</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-nightTimeSpeedScale"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Day Time Speed Scale</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-dayTimeSpeedScale"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Resources Respawn Period Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-resourcesRespawnPeriodMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Player Damage Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-playerDamageMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Dino Damage Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-dinoDamageMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Tamed Dino Damage Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-tamedDinoDamageMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Dino Resistance Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-dinoResistanceMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Tamed Dino Resistance Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-tamedDinoResistanceMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Structure Damage Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-structureDamageMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Structure Resistance Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-structureResistanceMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Player Harvesting Damage Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-playerHarvestingDamageMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Dino Harvesting Damage Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-dinoHarvestingDamageMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Wild Dino Food Drain Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-wildDinoCharacterFoodDrainMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Global Spoiling Time Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-globalSpoilingTimeMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Crop Growth Speed Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-cropGrowthSpeedMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Crop Decay Speed Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-cropDecaySpeedMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Supply Crate Loot Quality Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-supplyCrateLootQualityMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Fishing Loot Quality Multiplier</label
+                  >
+                  <input
+                    type="number"
+                    step="any"
+                    id="cfg-fishingLootQualityMultiplier"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Server Rules & Toggles -->
+            <div class="border-t border-slate-700 pt-4">
+              <h3 class="text-md font-semibold text-cyan-400 mb-3">
+                Server Rules & Toggles
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-serverPVE"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">PVE Mode</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-serverHardcore"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Hardcore Mode</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-noTributeDownloads"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">No Tribute Downloads</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-allowFlyerCarryPvE"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Allow Flyer Carry PvE</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-globalVoiceChat"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Global Voice Chat</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-proximityChat"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Proximity Chat</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-allowThirdPersonPlayer"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Allow Third Person</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-showMapPlayerLocation"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Show Map Player Location</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-enablePvPGamma"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Enable PvP Gamma</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-disableStructurePlacementCollision"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm"
+                    >Disable Structure Placement Collision</span
+                  >
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-rconEnabled"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">RCON Enabled</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-serverCrosshair"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Server Crosshair</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-serverForceNoHUD"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Server Force No HUD</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-allowHitMarkers"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Allow Hit Markers</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-bDisableFriendlyFire"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Disable Friendly Fire</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-bAllowUnlimitedRespecs"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Allow Unlimited Respecs</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-bUseCorpseLocator"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Use Corpse Locator</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-allowAnyoneBabyImprintCuddle"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Allow Anyone Baby Imprint Cuddle</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-overrideStructurePlatformPrevention"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm"
+                    >Override Structure Platform Prevention</span
+                  >
+                </label>
+              </div>
+            </div>
+
+            <!-- NPC Replacements (Dino Spawn Remaps) -->
+            <div class="border-t border-slate-700 pt-4">
+              <h3 class="text-md font-semibold text-cyan-400 mb-2">
+                NPC Replacements (Dino Spawn Swapping / Removal)
+              </h3>
+              <p class="text-xs text-slate-400 mb-3">
+                Select '-- No Spawn / Despawn --' to completely prevent the
+                dinosaur from spawning.
+              </p>
+              <div id="npc-replacements-container" class="space-y-2 mb-3">
+                <!-- Populated dynamically -->
+              </div>
+              <button
+                type="button"
+                onclick="addNpcReplacementRow()"
+                class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded transition"
+              >
+                + Add NPC Replacement
+              </button>
+            </div>
+
+            <!-- Override Named Engram Entries -->
+            <div class="border-t border-slate-700 pt-4">
+              <h3 class="text-md font-semibold text-cyan-400 mb-2">
+                Override Named Engram Entries
+              </h3>
+              <p class="text-xs text-slate-400 mb-3">
+                Configure engram requirements, unlock costs, visibility, and
+                dependencies.
+              </p>
+              <div id="engram-entries-container" class="space-y-2 mb-3">
+                <!-- Populated dynamically -->
+              </div>
+              <button
+                type="button"
+                onclick="addEngramEntryRow()"
+                class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded transition"
+              >
+                + Add Engram Override
+              </button>
+            </div>
+
+            <!-- Config Override Item Crafting Costs -->
+            <div class="border-t border-slate-700 pt-4">
+              <h3 class="text-md font-semibold text-cyan-400 mb-2">
+                Item Crafting Cost Overrides
+              </h3>
+              <div id="crafting-costs-container" class="space-y-3 mb-3">
+                <!-- Populated dynamically -->
+              </div>
+              <button
+                type="button"
+                onclick="addCraftingCostRow()"
+                class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded transition"
+              >
+                + Add Crafting Cost Override
+              </button>
+            </div>
+
+            <!-- Workshop Mods -->
+            <div class="border-t border-slate-700 pt-4">
+              <label class="block text-sm font-medium mb-1"
+                >Workshop Mod IDs (Comma separated, e.g.
+                932816570,2791223457)</label
+              >
+              <input
+                type="text"
+                id="cfg-mods"
+                placeholder="932816570,2791223457"
+                class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-mono text-sm"
+              />
+            </div>
+
+            <div class="flex justify-end pt-4">
+              <button
+                type="submit"
+                class="bg-cyan-600 hover:bg-cyan-500 text-white font-medium px-6 py-2 rounded transition"
+              >
+                Save Settings
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- User Management Tab -->
+        <div id="tab-users" class="tab-content hidden space-y-6">
+          <h2 class="text-2xl font-bold">User Management</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Update Current Account -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <h3 class="text-lg font-semibold mb-4 text-cyan-400">
+                Update Current Account
+              </h3>
+              <form onsubmit="updateCurrentAccount(event)" class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Change Username</label
+                  >
+                  <input
+                    type="text"
+                    id="account-username"
+                    required
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >New Password
+                    <span class="text-xs text-slate-400"
+                      >(leave blank to keep current)</span
+                    ></label
+                  >
+                  <input
+                    type="password"
+                    id="account-password"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="bg-cyan-600 hover:bg-cyan-500 text-white font-medium px-4 py-2 rounded transition"
+                >
+                  Update Account
+                </button>
+              </form>
+            </div>
+
+            <!-- Create New User -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <h3 class="text-lg font-semibold mb-4 text-cyan-400">
+                Create New User
+              </h3>
+              <form onsubmit="createUser(event)" class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Username</label>
+                  <input
+                    type="text"
+                    id="new-username"
+                    required
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Password</label>
+                  <input
+                    type="password"
+                    id="new-password"
+                    required
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+                  />
+                </div>
+                <div class="flex items-center space-x-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="new-isadmin"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <label class="text-sm font-medium"
+                    >Administrator privileges</label
+                  >
+                </div>
+                <button
+                  type="submit"
+                  class="bg-cyan-600 hover:bg-cyan-500 text-white font-medium px-4 py-2 rounded transition"
+                >
+                  Add User
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Add Server Modal -->
+    <div
+      id="server-modal"
+      class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-slate-800 p-6 rounded-xl border border-slate-700 w-96 space-y-4"
+      >
+        <h3 class="text-lg font-bold text-cyan-400">Add New Server</h3>
+        <form onsubmit="createServer(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Server Name</label>
+            <input
+              type="text"
+              id="modal-server-name"
+              placeholder="Main ARK Server"
+              required
+              class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Directory Path</label>
+            <input
+              type="text"
+              id="modal-server-path"
+              value="/data/ark1"
+              required
+              class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-mono text-sm"
+            />
+          </div>
+
+          <!-- Autostart Checkbox with proper alignment classes -->
+          <div class="flex items-center space-x-3 pt-1">
+            <input
+              type="checkbox"
+              id="modal-server-autostart"
+              class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-slate-800"
+            />
+            <label
+              for="modal-server-autostart"
+              class="text-sm font-medium text-slate-300 cursor-pointer"
+              >Start server on container startup</label
+            >
+          </div>
+
+          <div class="flex justify-end space-x-2 pt-2">
+            <button
+              type="button"
+              onclick="closeAddServerModal()"
+              class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded text-sm transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded text-sm font-medium transition"
+            >
+              Add Server
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+      let currentServerId = null;
+      let serversList = [];
+      let loggedInUserData = null;
+      let terminalEventSource = null;
+
+      const commonDinos = [
+        "Achatina_Character_BP_C",
+        "Allo_Character_BP_C",
+        "Ankylo_Character_BP_C",
+        "Argent_Character_BP_C",
+        "Baryonyx_Character_BP_C",
+        "Basilosaurus_Character_BP_C",
+        "Carno_Character_BP_C",
+        "Daeodon_Character_BP_C",
+        "Direbear_Character_BP_C",
+        "Direwolf_Character_BP_C",
+        "Dodo_Character_BP_C",
+        "Doed_Character_BP_C",
+        "Equus_Character_BP_C",
+        "Galli_Character_BP_C",
+        "Gigant_Character_BP_C",
+        "Griffin_Character_BP_C",
+        "Iguanodon_Character_BP_C",
+        "Mammoth_Character_BP_C",
+        "Megalodon_Character_BP_C",
+        "Megalosaurus_Character_BP_C",
+        "Megatherium_Character_BP_C",
+        "Moschops_Character_BP_C",
+        "Otter_Character_BP_C",
+        "OviRaptor_Character_BP_C",
+        "Paracer_Character_BP_C",
+        "Para_Character_BP_C",
+        "Plesiosaur_Character_BP_C",
+        "Procoptodon_Character_BP_C",
+        "Ptero_Character_BP_C",
+        "Quetz_Character_BP_C",
+        "Raptor_Character_BP_C",
+        "Rex_Character_BP_C",
+        "RockDrake_Character_BP_C",
+        "Saber_Character_BP_C",
+        "Sarco_Character_BP_C",
+        "Spino_Character_BP_C",
+        "Stego_Character_BP_C",
+        "Tapejara_Character_BP_C",
+        "TerrorBird_Character_BP_C",
+        "Thylacoleo_Character_BP_C",
+        "Trike_Character_BP_C",
+        "Tropeognathus_Character_BP_C",
+        "Tusoteuthis_Character_BP_C",
+        "Yutyrannus_Character_BP_C",
+      ];
+      async function toggleAutoStart(autoStart) {
+        if (!currentServerId) return;
+        const res = await fetch(`/api/control/${currentServerId}/autostart`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ autoStart }),
+        });
+
+        if (res.ok) {
+          // Update local state so it persists if you switch tabs
+          const server = serversList.find((s) => s.id === currentServerId);
+          if (server) server.autoStart = autoStart;
+        } else {
+          const data = await res.json();
+          alert(data.error);
+        }
+      }
+
+      // --- BACKUPS JAVASCRIPT LOGIC ---
+
+      async function loadBackups() {
+        if (!currentServerId) return;
+        const res = await fetch(`/api/backups/${currentServerId}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        document.getElementById("backup-frequency").value = data.frequency || 0;
+        document.getElementById("backup-retention").value = data.retention || 0;
+
+        const container = document.getElementById("backup-list");
+        container.innerHTML = "";
+
+        if (data.backups.length === 0) {
+          container.innerHTML =
+            '<p class="text-slate-400 text-sm">No backups found.</p>';
+          return;
+        }
+
+        data.backups.forEach((b) => {
+          const date = new Date(b.time).toLocaleString();
+          const row = document.createElement("div");
+          row.className =
+            "flex items-center justify-between bg-slate-900 p-3 rounded border border-slate-700";
+          row.innerHTML = `
+      <div>
+        <div class="text-sm font-bold text-white">${b.file}</div>
+        <div class="text-xs text-slate-400">${date}</div>
+      </div>
+      <div class="space-x-2">
+        <button onclick="restoreBackup('${b.file}')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded transition">Restore</button>
+        <button onclick="deleteBackup('${b.file}')" class="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded transition">Delete</button>
+      </div>
+    `;
+          container.appendChild(row);
+        });
+      }
+
+      async function triggerBackup() {
+        if (!currentServerId) return;
+        const btn = event.target;
+        btn.innerText = "Creating...";
+        btn.disabled = true;
+
+        const res = await fetch(`/api/backups/${currentServerId}`, {
+          method: "POST",
+        });
+        const data = await res.json();
+
+        btn.innerText = "Create Backup Now";
+        btn.disabled = false;
+
+        if (res.ok) {
+          alert("Backup created successfully!");
+          loadBackups();
+        } else {
+          alert(data.error || "Failed to create backup.");
+        }
+      }
+
+      async function restoreBackup(file) {
+        if (!currentServerId) return;
+        if (
+          !confirm(
+            `Are you sure you want to restore ${file}? This will overwrite all current saves and configurations, and the server MUST be stopped first.`,
+          )
+        )
+          return;
+
+        const res = await fetch(`/api/backups/${currentServerId}/restore`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert("Backup restored successfully!");
+        } else {
+          alert(data.error || "Failed to restore backup.");
+        }
+      }
+
+      async function deleteBackup(file) {
+        if (!currentServerId) return;
+        if (!confirm(`Delete backup ${file}?`)) return;
+
+        await fetch(`/api/backups/${currentServerId}/${file}`, {
+          method: "DELETE",
+        });
+        loadBackups();
+      }
+
+      async function saveBackupSettings(e) {
+        e.preventDefault();
+        if (!currentServerId) return;
+
+        const frequency = document.getElementById("backup-frequency").value;
+        const retention = document.getElementById("backup-retention").value;
+
+        const res = await fetch(`/api/backups/${currentServerId}/settings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ frequency, retention }),
+        });
+
+        const data = await res.json();
+        if (res.ok) alert("Schedule saved!");
+        else alert(data.error);
+      }
+
+      // Modify the existing switchServer function to also load the backups tab
+      const originalSwitchServer = switchServer;
+      switchServer = function (id) {
+        originalSwitchServer(id);
+        loadBackups();
+      };
+
+      async function deleteSpecificServer(serverId, serverName) {
+        if (
+          !confirm(
+            `Are you sure you want to delete "${serverName}"? This will stop the server and remove its configuration.`,
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/servers/${serverId}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+
+          if (res.ok) {
+            alert(data.message || "Server deleted successfully.");
+            // If the currently viewed server was deleted, clear currentServerId
+            if (currentServerId === serverId) {
+              currentServerId = null;
+            }
+            loadServers();
+          } else {
+            alert(data.error || "Failed to delete server.");
+          }
+        } catch (err) {
+          console.error("Error deleting server:", err);
+          alert("An error occurred while deleting the server.");
+        }
+      }
+
+      async function checkAuth() {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (data.loggedIn) {
+          loggedInUserData = data.user;
+          document.getElementById("login-view").classList.add("hidden");
+          document.getElementById("app-view").classList.remove("hidden");
+          document.getElementById("current-user").innerText =
+            `${data.user.username} (${data.user.isAdmin ? "Admin" : "User"})`;
+          document.getElementById("account-username").value =
+            data.user.username;
+          if (data.user.isAdmin)
+            document.getElementById("nav-users").classList.remove("hidden");
+          loadServers();
+        } else {
+          document.getElementById("login-view").classList.remove("hidden");
+          document.getElementById("app-view").classList.add("hidden");
+        }
+      }
+
+      async function handleLogin(e) {
+        e.preventDefault();
+        const username = document.getElementById("login-username").value;
+        const password = document.getElementById("login-password").value;
+        const errDiv = document.getElementById("login-error");
+
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          errDiv.classList.add("hidden");
+          checkAuth();
+        } else {
+          errDiv.innerText = data.error || "Login failed";
+          errDiv.classList.remove("hidden");
+        }
+      }
+
+      async function handleLogout() {
+        if (terminalEventSource) terminalEventSource.close();
+        await fetch("/api/logout", { method: "POST" });
+        checkAuth();
+      }
+
+      async function loadServers() {
+        const res = await fetch("/api/servers");
+        serversList = await res.json();
+        const container = document.getElementById("server-list");
+        container.innerHTML = "";
+
+        if (serversList.length === 0) {
+          currentServerId = null;
+          document
+            .getElementById("no-servers-state")
+            .classList.remove("hidden");
+          document.getElementById("tab-dashboard").classList.add("hidden");
+          document.getElementById("tab-settings").classList.add("hidden");
+          return;
+        }
+
+        document.getElementById("no-servers-state").classList.add("hidden");
+        if (
+          !currentServerId ||
+          !serversList.some((s) => s.id === currentServerId)
+        ) {
+          currentServerId = serversList[0].id;
+        }
+
+        serversList.forEach((s) => {
+          // Create a wrapper container for the server item and its delete button
+          const wrapper = document.createElement("div");
+          wrapper.className = `flex items-center justify-between w-full rounded text-sm font-medium transition ${s.id === currentServerId ? "bg-cyan-600 text-white" : "text-slate-300 hover:bg-slate-700"}`;
+
+          // Server selection button
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className =
+            "text-left px-3 py-2 flex-1 truncate focus:outline-none";
+          btn.innerText = s.name;
+          btn.onclick = () => switchServer(s.id);
+
+          // Delete button next to the server name
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className =
+            "px-2.5 py-2 text-slate-400 hover:text-red-400 transition focus:outline-none";
+          deleteBtn.innerHTML = "&times;";
+          deleteBtn.title = "Delete server";
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation(); // Prevent switching to the server when clicking delete
+            deleteSpecificServer(s.id, s.name);
+          };
+
+          wrapper.appendChild(btn);
+          wrapper.appendChild(deleteBtn);
+          container.appendChild(wrapper);
+        });
+
+        loadDashboardData();
+        loadSettingsData();
+        initTerminalStream();
+        loadBackups();
+      }
+
+      function switchServer(id) {
+        currentServerId = id;
+        loadServers();
+      }
+
+      function openAddServerModal() {
+        document.getElementById("server-modal").classList.remove("hidden");
+      }
+
+      function closeAddServerModal() {
+        document.getElementById("server-modal").classList.add("hidden");
+      }
+
+      async function createServer(e) {
+        e.preventDefault();
+        const name = document.getElementById("modal-server-name").value;
+        const pathVal = document.getElementById("modal-server-path").value;
+        const autoStart = document.getElementById(
+          "modal-server-autostart",
+        ).checked;
+
+        const res = await fetch("/api/servers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, path: pathVal, autoStart }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          closeAddServerModal();
+          e.target.reset();
+          loadServers();
+        } else {
+          alert(data.error);
+        }
+      }
+
+      async function loadDashboardData() {
+        if (!currentServerId) return;
+        const res = await fetch(`/api/status/${currentServerId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const badge = document.getElementById("server-status-badge");
+        if (data.running) {
+          badge.className =
+            "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+          badge.innerText = "Status: Running";
+        } else {
+          badge.className =
+            "px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
+          badge.innerText = "Status: Offline";
+        }
+
+        const statusText = document.getElementById("install-status-text");
+        const btnInstall = document.getElementById("btn-install");
+        if (data.installed) {
+          statusText.innerText = "Server files are installed and ready.";
+          btnInstall.classList.remove("hidden");
+          btnInstall.innerText = "Validate / Update Files";
+        } else {
+          statusText.innerText =
+            "Server files are missing. SteamCMD installation required.";
+          btnInstall.classList.remove("hidden");
+          btnInstall.innerText = "Install Server via SteamCMD";
+        }
+      }
+
+      function initTerminalStream() {
+        if (terminalEventSource) {
+          terminalEventSource.close();
+        }
+        if (!currentServerId) return;
+
+        terminalEventSource = new EventSource(
+          `/api/terminal/${currentServerId}`,
+        );
+        const terminalOutput = document.getElementById(
+          "server-terminal-output",
+        );
+
+        terminalEventSource.onmessage = function (event) {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.logs) {
+              const isAtBottom =
+                terminalOutput.scrollHeight - terminalOutput.scrollTop <=
+                terminalOutput.clientHeight + 50;
+              terminalOutput.innerText = data.logs;
+              if (isAtBottom) {
+                terminalOutput.scrollTop = terminalOutput.scrollHeight;
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing terminal stream", e);
+          }
+        };
+      }
+
+      function clearTerminalView() {
+        document.getElementById("server-terminal-output").innerText = "";
+      }
+
+      async function loadSettingsData() {
+        if (!currentServerId) return;
+        const res = await fetch(`/api/settings/${currentServerId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const key in data) {
+          const el = document.getElementById(`cfg-${key}`);
+          if (el) {
+            if (el.type === "checkbox") el.checked = data[key];
+            else el.value = data[key];
+          }
+        }
+
+        renderNpcReplacements(data.npcReplacements || []);
+        renderEngramEntries(data.engramEntries || []);
+        renderCraftingCosts(data.craftingCosts || []);
+      }
+
+      function renderNpcReplacements(items) {
+        const container = document.getElementById("npc-replacements-container");
+        container.innerHTML = "";
+        items.forEach((item) => addNpcReplacementRow(item.from, item.to));
+      }
+
+      function addNpcReplacementRow(fromVal = "", toVal = "") {
+        const container = document.getElementById("npc-replacements-container");
+        const row = document.createElement("div");
+        row.className =
+          "flex items-center space-x-2 bg-slate-900 p-2 rounded border border-slate-700";
+
+        let fromOptionsHtml = commonDinos
+          .map(
+            (d) =>
+              `<option value="${d}" ${d === fromVal ? "selected" : ""}>${d}</option>`,
+          )
+          .join("");
+        let toOptionsHtml =
+          `<option value="" ${!toVal ? "selected" : ""}>-- No Spawn / Despawn --</option>` +
+          commonDinos
+            .map(
+              (d) =>
+                `<option value="${d}" ${d === toVal ? "selected" : ""}>${d}</option>`,
+            )
+            .join("");
+
+        row.innerHTML = `
+                <select class="npc-from bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm flex-1">
+                    ${fromOptionsHtml}
+                </select>
+                <span class="text-xs text-slate-400">➔ replace with</span>
+                <select class="npc-to bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm flex-1">
+                    ${toOptionsHtml}
+                </select>
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 font-bold px-2">&times;</button>
+            `;
+        container.appendChild(row);
+      }
+
+      function renderEngramEntries(items) {
+        const container = document.getElementById("engram-entries-container");
+        container.innerHTML = "";
+        items.forEach((item) =>
+          addEngramEntryRow(
+            item.className,
+            item.level,
+            item.points,
+            item.hidden,
+            item.removePreReq,
+          ),
+        );
+      }
+
+      function addEngramEntryRow(
+        className = "",
+        level = 1,
+        points = 1,
+        hidden = false,
+        removePreReq = false,
+      ) {
+        const container = document.getElementById("engram-entries-container");
+        const row = document.createElement("div");
+        row.className =
+          "grid grid-cols-1 md:grid-cols-6 gap-2 bg-slate-900 p-3 rounded border border-slate-700 items-center";
+        row.innerHTML = `
+                <div class="md:col-span-2">
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Engram Class Name</label>
+                    <input type="text" class="engram-class w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-xs" placeholder="EngramEntry_DinoSkillReset_C" value="${className}">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Level Requirement</label>
+                    <input type="number" class="engram-level w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-xs" placeholder="1" value="${level}">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Engram Points Cost</label>
+                    <input type="number" class="engram-points w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-xs" placeholder="1" value="${points}">
+                </div>
+                <div class="flex flex-col justify-center space-y-1 text-xs pt-4">
+                    <label class="flex items-center space-x-1.5"><input type="checkbox" class="engram-hidden" ${hidden ? "checked" : ""}> <span class="text-slate-300">Engram Hidden</span></label>
+                    <label class="flex items-center space-x-1.5"><input type="checkbox" class="engram-prereq" ${removePreReq ? "checked" : ""}> <span class="text-slate-300">Remove PreReq</span></label>
+                </div>
+                <div class="text-right pt-4">
+                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-400 hover:text-red-300 text-xs font-semibold">Remove</button>
+                </div>
+            `;
+        container.appendChild(row);
+      }
+
+      function renderCraftingCosts(items) {
+        const container = document.getElementById("crafting-costs-container");
+        container.innerHTML = "";
+        items.forEach((item) =>
+          addCraftingCostRow(item.itemClass, item.resources),
+        );
+      }
+
+      function addCraftingCostRow(itemClass = "", resources = []) {
+        const container = document.getElementById("crafting-costs-container");
+        const row = document.createElement("div");
+        row.className =
+          "bg-slate-900 p-3 rounded border border-slate-700 space-y-2";
+
+        let resHtml = resources
+          .map(
+            (r) => `
+                <div class="flex items-center space-x-2 text-xs resource-row">
+                    <input type="text" class="res-type bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white flex-1" placeholder="ResourceItemTypeString" value="${r.type}">
+                    <input type="number" step="any" class="res-amount bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white w-24" placeholder="Amount" value="${r.amount}">
+                    <button type="button" onclick="this.parentElement.remove()" class="text-red-400 font-bold px-1">&times;</button>
+                </div>
+            `,
+          )
+          .join("");
+
+        row.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <input type="text" class="craft-item-class w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm" placeholder="ItemClassString (e.g. PrimalItemConsumable_DinoSkillReset_C)" value="${itemClass}">
+                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-400 hover:text-red-300 text-xs">Delete Override</button>
+                </div>
+                <div class="space-y-1 pl-4 border-l border-slate-700 resource-list">
+                    <div class="text-xs font-semibold text-slate-400">Required Resources:</div>
+                    ${resHtml}
+                    <button type="button" onclick="addResourceRequirement(this)" class="text-cyan-400 hover:underline text-xs">+ Add Resource Requirement</button>
+                </div>
+            `;
+        container.appendChild(row);
+      }
+
+      function addResourceRequirement(btn) {
+        const list = btn.parentElement;
+        const div = document.createElement("div");
+        div.className = "flex items-center space-x-2 text-xs resource-row";
+        div.innerHTML = `
+                <input type="text" class="res-type bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white flex-1" placeholder="ResourceItemTypeString">
+                <input type="number" step="any" class="res-amount bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white w-24" placeholder="Amount" value="1">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 font-bold px-1">&times;</button>
+            `;
+        list.insertBefore(div, btn);
+      }
+
+      async function saveSettings(e) {
+        e.preventDefault();
+        if (!currentServerId) return;
+        const inputs = document.querySelectorAll(
+          "#settings-form input, #settings-form select",
+        );
+        const payload = {};
+        inputs.forEach((i) => {
+          if (i.id.startsWith("cfg-")) {
+            const key = i.id.replace("cfg-", "");
+            if (i.type === "checkbox") payload[key] = i.checked;
+            else payload[key] = i.value;
+          }
+        });
+
+        payload.npcReplacements = [];
+        document
+          .querySelectorAll("#npc-replacements-container > div")
+          .forEach((row) => {
+            const from = row.querySelector(".npc-from").value;
+            const to = row.querySelector(".npc-to").value;
+            payload.npcReplacements.push({ from, to });
+          });
+
+        payload.engramEntries = [];
+        document
+          .querySelectorAll("#engram-entries-container > div")
+          .forEach((row) => {
+            payload.engramEntries.push({
+              className: row.querySelector(".engram-class").value,
+              level: row.querySelector(".engram-level").value,
+              points: row.querySelector(".engram-points").value,
+              hidden: row.querySelector(".engram-hidden").checked,
+              removePreReq: row.querySelector(".engram-prereq").checked,
+            });
+          });
+
+        try {
+          const response = await fetch(`/api/settings/${currentServerId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const result = await response.json();
+
+          if (response.ok) {
+            alert("Settings saved successfully!");
+
+            // INSTANTLY UPDATE THE SIDEBAR NAME
+            const newName = document.getElementById("cfg-sessionName").value;
+            if (newName) {
+              // Looks for the element in the left server list matching your server ID
+              const sidebarElement =
+                document.querySelector(
+                  `[data-server-id="${currentServerId}"]`,
+                ) || document.getElementById(`server-nav-${currentServerId}`);
+              if (sidebarElement) {
+                sidebarElement.textContent = newName;
+              }
+            }
+          } else {
+            alert(result.error || "Failed to save settings.");
+          }
+        } catch (err) {
+          console.error("Error saving settings:", err);
+          alert("An error occurred while saving settings.");
+        }
+        payload.craftingCosts = [];
+        document
+          .querySelectorAll("#crafting-costs-container > div")
+          .forEach((card) => {
+            const itemClass = card.querySelector(".craft-item-class").value;
+            const resources = [];
+            card.querySelectorAll(".resource-row").forEach((resRow) => {
+              resources.push({
+                type: resRow.querySelector(".res-type").value,
+                amount: resRow.querySelector(".res-amount").value,
+              });
+            });
+            if (itemClass) {
+              payload.craftingCosts.push({ itemClass, resources });
+            }
+          });
+
+        const res = await fetch(`/api/settings/${currentServerId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        alert(data.message || data.error);
+      }
+
+      async function installServer() {
+        if (!currentServerId) return;
+        if (!confirm("Start SteamCMD installation process?")) return;
+
+        const btnInstall = document.getElementById("btn-install");
+        const progressContainer = document.getElementById(
+          "install-progress-container",
+        );
+        const logOutput = document.getElementById("install-log-output");
+
+        btnInstall.disabled = true;
+        btnInstall.classList.add("opacity-50", "cursor-not-allowed");
+        progressContainer.classList.remove("hidden");
+        logOutput.innerText = "Connecting to installation stream...\n";
+
+        try {
+          const response = await fetch(`/api/install/${currentServerId}`, {
+            method: "POST",
+          });
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n\n");
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.replace("data: ", ""));
+                  if (data.log) {
+                    logOutput.innerText += data.log;
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                  }
+                  if (data.done) {
+                    logOutput.innerText += `\n[Installation finished with exit code ${data.code}]\n`;
+                    btnInstall.disabled = false;
+                    btnInstall.classList.remove(
+                      "opacity-50",
+                      "cursor-not-allowed",
+                    );
+                    loadDashboardData();
+                  }
+                } catch (err) {
+                  console.error("Error parsing SSE chunk", err);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          logOutput.innerText += `\nERROR: Failed to connect to installation stream.\n`;
+          btnInstall.disabled = false;
+          btnInstall.classList.remove("opacity-50", "cursor-not-allowed");
+        }
+      }
+
+      async function updateCurrentAccount(e) {
+        e.preventDefault();
+        const username = document.getElementById("account-username").value;
+        const password = document.getElementById("account-password").value;
+
+        const payload = { username };
+        if (password) payload.password = password;
+
+        const res = await fetch("/api/users/me", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        alert(data.message || data.error);
+        if (res.ok) {
+          document.getElementById("account-password").value = "";
+          checkAuth();
+        }
+      }
+
+      async function controlServer(action) {
+        if (!currentServerId) return;
+        const res = await fetch(`/api/control/${currentServerId}/${action}`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        alert(data.message || data.error);
+        loadDashboardData();
+      }
+
+      async function createUser(e) {
+        e.preventDefault();
+        const username = document.getElementById("new-username").value;
+        const password = document.getElementById("new-password").value;
+        const isAdminUser = document.getElementById("new-isadmin").checked;
+
+        const res = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, isAdminUser }),
+        });
+        const data = await res.json();
+        alert(data.message || data.error);
+        if (res.ok) e.target.reset();
+      }
+
+      function switchTab(tab) {
+        if (!currentServerId && tab !== "users") return;
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((el) => el.classList.add("hidden"));
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((el) => el.classList.remove("text-cyan-400", "font-bold"));
+
+        const targetTab = document.getElementById(`tab-${tab}`);
+        if (targetTab) targetTab.classList.remove("hidden");
+
+        const btn = document.querySelector(`[data-tab="${tab}"]`);
+        if (btn) btn.classList.add("text-cyan-400", "font-bold");
+      }
+
+      checkAuth();
+
+      setInterval(() => {
+        if (
+          !document.getElementById("app-view").classList.contains("hidden") &&
+          currentServerId
+        ) {
+          loadDashboardData();
+        }
+      }, 3000);
+    </script>
+  </body>
+</html>
