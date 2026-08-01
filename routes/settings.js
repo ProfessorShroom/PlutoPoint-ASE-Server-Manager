@@ -10,6 +10,27 @@ const {
   isAdmin,
 } = require("../utils/helpers");
 
+const findSectionKey = (config, desired) =>
+  Object.keys(config).find(
+    (key) => key.toLowerCase() === desired.toLowerCase(),
+  );
+
+const getSection = (config, desired) => {
+  const key = findSectionKey(config, desired);
+  return key ? config[key] : undefined;
+};
+
+const setSection = (config, desired, value) => {
+  const key = findSectionKey(config, desired);
+  if (key && key !== desired) delete config[key];
+  config[desired] = value;
+};
+
+const deleteSection = (config, desired) => {
+  const key = findSectionKey(config, desired);
+  if (key) delete config[key];
+};
+
 router.get("/settings/:serverId", isAuthenticated, (req, res) => {
   const servers = loadServers();
   const server = servers.find((s) => s.id === req.params.serverId);
@@ -25,6 +46,22 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
   let gusConfig = {};
   let gameConfig = {};
 
+  const findSectionKey = (config, desired) =>
+    Object.keys(config).find(
+      (key) => key.toLowerCase() === desired.toLowerCase(),
+    );
+
+  const getSection = (config, desired) => {
+    const key = findSectionKey(config, desired);
+    return key ? config[key] : undefined;
+  };
+
+  const setSection = (config, desired, value) => {
+    const key = findSectionKey(config, desired);
+    if (key && key !== desired) delete config[key];
+    config[desired] = value;
+  };
+
   try {
     if (fs.existsSync(gusPath))
       gusConfig = ini.parse(fs.readFileSync(gusPath, "utf-8"));
@@ -32,12 +69,19 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
       gameConfig = ini.parse(fs.readFileSync(gamePath, "utf-8"));
   } catch (e) {}
 
-  const ss = gusConfig.ServerSettings || {};
-  const gm = gameConfig["/script/shootergame.shootergamemode"] || {};
-  const gs = gusConfig["/Script/Engine.GameSession"] || {};
-  const session = gusConfig.SessionSettings || {};
-  const motd = gusConfig.MessageOfTheDay || {};
-  const modInstaller = gameConfig.ModInstaller || gusConfig.ModInstaller || {};
+  const ss = getSection(gusConfig, "ServerSettings") || {};
+  const gmSectionName =
+    findSectionKey(gameConfig, "/Script/ShooterGame.ShooterGameMode") ||
+    "/Script/ShooterGame.ShooterGameMode";
+  const gm =
+    getSection(gameConfig, "/Script/ShooterGame.ShooterGameMode") || {};
+  const gs = getSection(gusConfig, "/Script/Engine.GameSession") || {};
+  const session = getSection(gusConfig, "SessionSettings") || {};
+  const motd = getSection(gusConfig, "MessageOfTheDay") || {};
+  const modInstaller =
+    getSection(gameConfig, "ModInstaller") ||
+    getSection(gusConfig, "ModInstaller") ||
+    {};
 
   let modIdsArray = [];
   if (modInstaller.ModIDS) {
@@ -315,20 +359,24 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
       gameConfig = ini.parse(fs.readFileSync(gamePath, "utf-8"));
   } catch (e) {}
 
-  if (!gusConfig.ServerSettings) gusConfig.ServerSettings = {};
-  if (!gusConfig["/Script/Engine.GameSession"])
-    gusConfig["/Script/Engine.GameSession"] = {};
-  if (!gusConfig.SessionSettings) gusConfig.SessionSettings = {};
-  if (!gusConfig.MessageOfTheDay) gusConfig.MessageOfTheDay = {};
-  if (!gameConfig["/script/shootergame.shootergamemode"])
-    gameConfig["/script/shootergame.shootergamemode"] = {};
+  const gmSectionName =
+    findSectionKey(gameConfig, "/Script/ShooterGame.ShooterGameMode") ||
+    findSectionKey(gameConfig, "/script/shootergame.shootergamemode") ||
+    "/Script/ShooterGame.ShooterGameMode";
+
+  const ss = getSection(gusConfig, "ServerSettings") || {};
+  const gs = getSection(gusConfig, "/Script/Engine.GameSession") || {};
+  const session = getSection(gusConfig, "SessionSettings") || {};
+  const motd = getSection(gusConfig, "MessageOfTheDay") || {};
+  const gm = getSection(gameConfig, gmSectionName) || {};
+
+  setSection(gusConfig, "ServerSettings", ss);
+  setSection(gusConfig, "/Script/Engine.GameSession", gs);
+  setSection(gusConfig, "SessionSettings", session);
+  setSection(gusConfig, "MessageOfTheDay", motd);
+  setSection(gameConfig, gmSectionName, gm);
 
   const body = req.body;
-  const ss = gusConfig.ServerSettings;
-  const gs = gusConfig["/Script/Engine.GameSession"];
-  const session = gusConfig.SessionSettings;
-  const motd = gusConfig.MessageOfTheDay;
-  const gm = gameConfig["/script/shootergame.shootergamemode"];
 
   if (body.sessionName !== undefined && body.sessionName.trim() !== "") {
     ss.SessionName = body.sessionName;
@@ -447,8 +495,8 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
       .map((id) => id.trim())
       .filter((id) => id.length > 0);
     if (modIdsArray.length > 0)
-      gameConfig["ModInstaller"] = { ModIDS: modIdsArray };
-    else delete gameConfig["ModInstaller"];
+      setSection(gameConfig, "ModInstaller", { ModIDS: modIdsArray });
+    else deleteSection(gameConfig, "ModInstaller");
   }
 
   if (body.npcReplacements && Array.isArray(body.npcReplacements)) {
@@ -505,12 +553,14 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
       gameIniContent += "\n";
     }
 
-    fs.writeFileSync(gamePath, gameIniContent.trim());
+    fs.writeFileSync(gamePath, gameIniContent.trim(), "utf-8");
     res.json({ message: "Settings saved successfully!" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Failed to write configuration files to disk." });
+    console.error("Failed to write config files:", err);
+    res.status(500).json({
+      error: "Failed to write configuration files to disk.",
+      detail: err.message,
+    });
   }
 });
 

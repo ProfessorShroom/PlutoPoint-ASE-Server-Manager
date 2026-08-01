@@ -194,6 +194,7 @@ router.post(
 
     serverLogs[server.id] = [
       `[${new Date().toISOString()}] Starting server process...\n`,
+      `[INFO] Server process launched, waiting for ARK server startup...\n`,
     ];
     serverProcess.stdout.on("data", (data) => {
       serverLogs[server.id].push(data.toString());
