@@ -2,7 +2,10 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
+const https = require("https");
 const ini = require("ini");
+const packageJson = require("../package.json");
+const dockerRepository = "professorshroom/plutopoint-ase-server-manager";
 const {
   loadServers,
   saveServers,
@@ -88,9 +91,62 @@ const normalizeIniSections = (config) => {
   return normalized;
 };
 
-const formatIniValue = (value) => {
+const floatKeysSixDecimals = new Set([
+  "UseCorpseLifeSpanMultiplier",
+  "GlobalPoweredBatteryDurabilityDecreasePerSecond",
+  "ResourceNoReplenishRadiusPlayers",
+  "ResourceNoReplenishRadiusStructures",
+  "BaseTemperatureMultiplier",
+  "GlobalItemDecompositionTimeMultiplier",
+  "GlobalCorpseDecompositionTimeMultiplier",
+  "GlobalSpoilingTimeMultiplier",
+  "CropGrowthSpeedMultiplier",
+  "CropDecaySpeedMultiplier",
+  "LayEggIntervalMultiplier",
+  "PoopIntervalMultiplier",
+  "BabyFoodConsumptionSpeedMultiplier",
+  "BabyImprintingStatScaleMultiplier",
+  "BabyCuddleIntervalMultiplier",
+  "BabyCuddleGracePeriodMultiplier",
+  "BabyCuddleLoseImprintQualitySpeedMultiplier",
+  "WildDinoCharacterFoodDrainMultiplier",
+  "TamedDinoCharacterFoodDrainMultiplier",
+  "WildDinoTorporDrainMultiplier",
+  "TamedDinoTorporDrainMultiplier",
+  "PassiveTameIntervalMultiplier",
+  "PlayerHarvestingDamageMultiplier",
+  "CraftingSkillBonusMultiplier",
+  "TamingSpeedMultiplier",
+  "HarvestAmountMultiplier",
+  "HarvestHealthMultiplier",
+  "GenericXPMultiplier",
+  "CraftXPMultiplier",
+  "HarvestXPMultiplier",
+  "KillXPMultiplier",
+  "SpecialXPMultiplier",
+  "SupplyCrateLootQualityMultiplier",
+  "FishingLootQualityMultiplier",
+  "PvPZoneStructureDamageMultiplier",
+]);
+
+const formatIniValue = (key, value) => {
   if (typeof value === "boolean") return value ? "True" : "False";
   if (value === undefined || value === null) return "";
+  if (typeof value === "number") {
+    if (floatKeysSixDecimals.has(key)) return value.toFixed(6);
+    return String(value);
+  }
+  if (typeof value === "string") {
+    const numericValue = Number(value);
+    if (
+      floatKeysSixDecimals.has(key) &&
+      value.trim() !== "" &&
+      !Number.isNaN(numericValue)
+    ) {
+      return numericValue.toFixed(6);
+    }
+    return value;
+  }
   if (typeof value === "object") {
     try {
       return JSON.stringify(value);
@@ -118,7 +174,7 @@ const appendIniEntries = (lines, keyPrefix, value) => {
     return;
   }
 
-  lines.push(`${keyPrefix}=${formatIniValue(value)}`);
+  lines.push(`${keyPrefix}=${formatIniValue(keyPrefix, value)}`);
 };
 
 const serializeIniConfig = (config) => {
@@ -486,6 +542,14 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
       "GlobalCorpseDecompositionTimeMultiplier",
       1.0,
     ),
+    randomSupplyCratePoints: isTrue(
+      getVal([ss, gm], "RandomSupplyCratePoints"),
+    ),
+    structureDamageRepairCooldown: getVal(
+      [ss, gm],
+      "StructureDamageRepairCooldown",
+      "",
+    ),
     overrideMaxExperiencePointsPlayer: getVal(
       [gm, ss],
       "OverrideMaxExperiencePointsPlayer",
@@ -661,6 +725,7 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
     overrideMaxExperiencePointsPlayer: "OverrideMaxExperiencePointsPlayer",
     overrideMaxExperiencePointsDino: "OverrideMaxExperiencePointsDino",
     baseTemperatureMultiplier: "BaseTemperatureMultiplier",
+    structureDamageRepairCooldown: "StructureDamageRepairCooldown",
   };
 
   for (const [frontendKey, iniKey] of Object.entries(gusMultipliers)) {
@@ -687,13 +752,20 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
     allowHitMarkers: "AllowHitMarkers",
     allowAnyoneBabyImprintCuddle: "AllowAnyoneBabyImprintCuddle",
     overrideStructurePlatformPrevention: "OverrideStructurePlatformPrevention",
-    randomSupplyCratePoints: "RandomSupplyCratePoints",
   };
 
   for (const [frontendKey, iniKey] of Object.entries(boolMap)) {
     if (body[frontendKey] !== undefined)
       ss[iniKey] = body[frontendKey] ? "True" : "False";
   }
+
+  if (body.randomSupplyCratePoints !== undefined)
+    gm.RandomSupplyCratePoints = body.randomSupplyCratePoints
+      ? "True"
+      : "False";
+
+  if (body.structureDamageRepairCooldown !== undefined)
+    gm.StructureDamageRepairCooldown = body.structureDamageRepairCooldown;
 
   if (body.disableStructurePlacementCollision !== undefined)
     gm.bDisableStructurePlacementCollision =
@@ -761,6 +833,125 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
       detail: err.message,
     });
   }
+});
+
+const dockerHubRepository = "professorshroom/plutopoint-ase-server-manager";
+
+const compareVersionStrings = (a, b) => {
+  const normalize = (value) =>
+    value
+      .split(/\.|-/)
+      .map((part) => {
+        const match = /^([0-9]+)([a-zA-Z]*)$/.exec(part);
+        if (!match) return part;
+        return [Number(match[1]), match[2] || ""];
+      })
+      .flat();
+
+  const aParts = normalize(a);
+  const bParts = normalize(b);
+  const length = Math.max(aParts.length, bParts.length);
+
+  for (let i = 0; i < length; i += 1) {
+    const aPart = aParts[i] === undefined ? "" : aParts[i];
+    const bPart = bParts[i] === undefined ? "" : bParts[i];
+
+    if (typeof aPart === "number" && typeof bPart === "number") {
+      if (aPart !== bPart) return aPart - bPart;
+      continue;
+    }
+
+    const aStr = String(aPart);
+    const bStr = String(bPart);
+    if (aStr !== bStr)
+      return aStr.localeCompare(bStr, undefined, { numeric: true });
+  }
+
+  return 0;
+};
+
+const fetchLatestDockerTag = () =>
+  new Promise((resolve, reject) => {
+    const url = `https://hub.docker.com/v2/repositories/${dockerHubRepository}/tags?page_size=50&ordering=last_updated`;
+    https
+      .get(
+        url,
+        { headers: { "User-Agent": "PlutoPoint-ASE-Server-Manager" } },
+        (res) => {
+          const chunks = [];
+          res.on("data", (chunk) => chunks.push(chunk));
+          res.on("end", () => {
+            try {
+              const payload = JSON.parse(
+                Buffer.concat(chunks).toString("utf8"),
+              );
+              if (!payload.results || payload.results.length === 0) {
+                return resolve(null);
+              }
+
+              let latestVersionTag = null;
+              let latestVersionTime = null;
+              let latestTag = null;
+              payload.results.forEach((tag) => {
+                if (tag.name === "latest") {
+                  latestTag = tag;
+                  return;
+                }
+                if (/^[0-9]/.test(tag.name)) {
+                  if (
+                    !latestVersionTag ||
+                    compareVersionStrings(tag.name, latestVersionTag) > 0
+                  ) {
+                    latestVersionTag = tag.name;
+                    latestVersionTime = tag.last_updated;
+                  }
+                }
+              });
+
+              if (latestVersionTag) {
+                return resolve({
+                  tag: latestVersionTag,
+                  lastUpdated: latestVersionTime,
+                });
+              }
+
+              if (latestTag) {
+                return resolve({
+                  tag: latestTag.name,
+                  lastUpdated: latestTag.last_updated,
+                });
+              }
+
+              resolve(null);
+            } catch (err) {
+              reject(err);
+            }
+          });
+        },
+      )
+      .on("error", reject);
+  });
+
+router.get("/version", async (req, res) => {
+  const response = {
+    version: packageJson.version,
+    dockerRepository,
+    latestDockerTag: null,
+    updateAvailable: false,
+  };
+
+  try {
+    const latest = await fetchLatestDockerTag();
+    if (latest && latest.tag) {
+      response.latestDockerTag = latest.tag;
+      response.updateAvailable = latest.tag !== packageJson.version;
+      response.latestDockerLastUpdated = latest.lastUpdated;
+    }
+  } catch (err) {
+    response.error = "Unable to check Docker Hub for updates.";
+  }
+
+  res.json(response);
 });
 
 module.exports = router;

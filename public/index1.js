@@ -230,6 +230,7 @@ async function checkAuth() {
     if (data.user.isAdmin)
       document.getElementById("nav-users").classList.remove("hidden");
     loadServers();
+    loadVersionInfo();
   } else {
     document.getElementById("login-view").classList.remove("hidden");
     document.getElementById("app-view").classList.add("hidden");
@@ -320,6 +321,27 @@ async function loadServers() {
 function switchServer(id) {
   currentServerId = id;
   loadServers();
+}
+
+async function loadVersionInfo() {
+  const versionEl = document.getElementById("app-version");
+  versionEl.innerText = "Loading version...";
+
+  try {
+    const res = await fetch("/api/version");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load version");
+
+    versionEl.innerText = `Version: ${data.version}`;
+    if (data.updateAvailable) {
+      const updateText = document.createElement("div");
+      updateText.className = "text-xs text-amber-300 mt-1";
+      updateText.innerText = `New Docker image available: ${data.latestDockerTag}`;
+      versionEl.appendChild(updateText);
+    }
+  } catch (err) {
+    versionEl.innerText = "Version info unavailable";
+  }
 }
 
 function openAddServerModal() {
