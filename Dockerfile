@@ -28,6 +28,8 @@ RUN mkdir -p /opt/steamcmd \
  && curl -fsSL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" \
     | tar -C /opt/steamcmd -xz \
  && chmod +x /opt/steamcmd/steamcmd.sh \
+ && chmod +x /opt/steamcmd/linux32/steamcmd \
+ && chmod +x /opt/steamcmd/linux64/steamcmd \
  && printf '#!/bin/sh\nexec /opt/steamcmd/steamcmd.sh "$@"\n' > /usr/local/bin/steamcmd \
  && chmod +x /usr/local/bin/steamcmd
 
