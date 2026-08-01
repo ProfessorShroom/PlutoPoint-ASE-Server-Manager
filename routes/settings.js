@@ -37,7 +37,34 @@ const deleteSection = (config, desired) => {
 const formatIniValue = (value) => {
   if (typeof value === "boolean") return value ? "True" : "False";
   if (value === undefined || value === null) return "";
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch (err) {
+      return "";
+    }
+  }
   return String(value);
+};
+
+const appendIniEntries = (lines, keyPrefix, value) => {
+  if (value === undefined || value === null) return;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      appendIniEntries(lines, keyPrefix, item);
+    }
+    return;
+  }
+
+  if (typeof value === "object") {
+    for (const [subKey, subValue] of Object.entries(value)) {
+      appendIniEntries(lines, `${keyPrefix}.${subKey}`, subValue);
+    }
+    return;
+  }
+
+  lines.push(`${keyPrefix}=${formatIniValue(value)}`);
 };
 
 const serializeIniConfig = (config) => {
@@ -45,19 +72,9 @@ const serializeIniConfig = (config) => {
     const normalizedSectionName = String(sectionName).replace(/\\\./g, ".");
     const lines = [`[${normalizedSectionName}]`];
 
-    if (
-      sectionValue &&
-      typeof sectionValue === "object" &&
-      !Array.isArray(sectionValue)
-    ) {
+    if (sectionValue && typeof sectionValue === "object") {
       for (const [key, value] of Object.entries(sectionValue)) {
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            lines.push(`${key}=${formatIniValue(item)}`);
-          }
-        } else {
-          lines.push(`${key}=${formatIniValue(value)}`);
-        }
+        appendIniEntries(lines, key, value);
       }
     }
 
