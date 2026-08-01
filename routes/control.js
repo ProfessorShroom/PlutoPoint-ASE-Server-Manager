@@ -52,16 +52,34 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
 
   sendLog(`Using SteamCMD at ${steamcmdPath}\n`);
 
-  const steamcmd = spawn(steamcmdPath, [
-    "+force_install_dir",
-    server.path,
-    "+login",
-    "anonymous",
-    "+app_update",
-    "376030",
-    "+validate",
-    "+quit",
-  ]);
+  const steamHome = "/tmp/steamcmd-home";
+  const steamTmp = "/tmp/steamcmd-tmp";
+  fs.mkdirSync(steamHome, { recursive: true });
+  fs.mkdirSync(steamTmp, { recursive: true });
+
+  const steamcmd = spawn(
+    steamcmdPath,
+    [
+      "+force_install_dir",
+      server.path,
+      "+login",
+      "anonymous",
+      "+app_update",
+      "376030",
+      "+validate",
+      "+quit",
+    ],
+    {
+      env: {
+        ...process.env,
+        HOME: steamHome,
+        STEAMHOME: steamHome,
+        TMPDIR: steamTmp,
+        XDG_CACHE_HOME: steamHome,
+        XDG_CONFIG_HOME: steamHome,
+      },
+    },
+  );
 
   steamcmd.on("error", (error) => {
     sendLog(`ERROR: Failed to start SteamCMD: ${error.message}\n`);
