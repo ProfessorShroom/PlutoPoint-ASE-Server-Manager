@@ -10,9 +10,12 @@ const {
   isAdmin,
 } = require("../utils/helpers");
 
+const normalizeIniKey = (key) =>
+  String(key).toLowerCase().replace(/\\\./g, ".").replace(/\[\]$/g, "");
+
 const findSectionKey = (config, desired) =>
   Object.keys(config).find(
-    (key) => key.toLowerCase() === desired.toLowerCase(),
+    (key) => normalizeIniKey(key) === normalizeIniKey(desired),
   );
 
 const getSection = (config, desired) => {
@@ -29,6 +32,39 @@ const setSection = (config, desired, value) => {
 const deleteSection = (config, desired) => {
   const key = findSectionKey(config, desired);
   if (key) delete config[key];
+};
+
+const formatIniValue = (value) => {
+  if (typeof value === "boolean") return value ? "True" : "False";
+  if (value === undefined || value === null) return "";
+  return String(value);
+};
+
+const serializeIniConfig = (config) => {
+  const sections = Object.entries(config).map(([sectionName, sectionValue]) => {
+    const normalizedSectionName = String(sectionName).replace(/\\\./g, ".");
+    const lines = [`[${normalizedSectionName}]`];
+
+    if (
+      sectionValue &&
+      typeof sectionValue === "object" &&
+      !Array.isArray(sectionValue)
+    ) {
+      for (const [key, value] of Object.entries(sectionValue)) {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            lines.push(`${key}=${formatIniValue(item)}`);
+          }
+        } else {
+          lines.push(`${key}=${formatIniValue(value)}`);
+        }
+      }
+    }
+
+    return lines.join("\n");
+  });
+
+  return sections.join("\n\n") + "\n";
 };
 
 router.get("/settings/:serverId", isAuthenticated, (req, res) => {
@@ -531,10 +567,10 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
   }
 
   try {
-    let rawGusData = ini.stringify(gusConfig).replace(/\\\./g, ".");
+    const rawGusData = serializeIniConfig(gusConfig);
     fs.writeFileSync(gusPath, rawGusData, "utf-8");
 
-    const rawGameData = ini.stringify(gameConfig);
+    const rawGameData = serializeIniConfig(gameConfig);
     fs.writeFileSync(gamePath, rawGameData, "utf-8");
     res.json({ message: "Settings saved successfully!" });
   } catch (err) {
