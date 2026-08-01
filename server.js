@@ -1027,49 +1027,61 @@ app.post("/api/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
   if (body.motdMessage !== undefined) motd.Message = body.motdMessage;
   if (body.motdDuration !== undefined) motd.Duration = body.motdDuration;
 
-  const multiplierKeys = [
-    "tamingSpeedMultiplier",
-    "harvestAmountMultiplier",
-    "harvestHealthMultiplier",
-    "genericXPMultiplier",
-    "craftXPMultiplier",
-    "harvestXPMultiplier",
-    "killXPMultiplier",
-    "specialXPMultiplier",
-    "craftingSkillBonusMultiplier",
-    "layEggIntervalMultiplier",
-    "matingIntervalMultiplier",
-    "eggHatchSpeedMultiplier",
-    "babyMatureSpeedMultiplier",
-    "babyFoodConsumptionSpeedMultiplier",
-    "babyCuddleIntervalMultiplier",
-    "nightTimeSpeedScale",
-    "dayTimeSpeedScale",
-    "resourcesRespawnPeriodMultiplier",
-    "playerDamageMultiplier",
-    "dinoDamageMultiplier",
-    "tamedDinoDamageMultiplier",
-    "dinoResistanceMultiplier",
-    "tamedDinoResistanceMultiplier",
-    "structureDamageMultiplier",
-    "structureResistanceMultiplier",
-    "playerHarvestingDamageMultiplier",
-    "dinoHarvestingDamageMultiplier",
-    "wildDinoCharacterFoodDrainMultiplier",
-    "globalSpoilingTimeMultiplier",
-    "cropGrowthSpeedMultiplier",
-    "cropDecaySpeedMultiplier",
-    "supplyCrateLootQualityMultiplier",
-    "fishingLootQualityMultiplier",
-  ];
+  // --- 1. GAMEUSERSETTINGS.INI MULTIPLIERS ---
+  const gusMultipliers = {
+    tamingSpeedMultiplier: "TamingSpeedMultiplier",
+    harvestAmountMultiplier: "HarvestAmountMultiplier",
+    harvestHealthMultiplier: "HarvestHealthMultiplier",
+    nightTimeSpeedScale: "NightTimeSpeedScale",
+    dayTimeSpeedScale: "DayTimeSpeedScale",
+    resourcesRespawnPeriodMultiplier: "ResourcesRespawnPeriodMultiplier",
+    playerDamageMultiplier: "PlayerDamageMultiplier",
+    dinoDamageMultiplier: "DinoDamageMultiplier",
+    tamedDinoDamageMultiplier: "TamedDinoDamageMultiplier",
+    dinoResistanceMultiplier: "DinoResistanceMultiplier",
+    tamedDinoResistanceMultiplier: "TamedDinoResistanceMultiplier",
+    structureDamageMultiplier: "StructureDamageMultiplier",
+    structureResistanceMultiplier: "StructureResistanceMultiplier",
+    playerHarvestingDamageMultiplier: "PlayerHarvestingDamageMultiplier",
+    dinoHarvestingDamageMultiplier: "DinoHarvestingDamageMultiplier",
+    globalSpoilingTimeMultiplier: "GlobalSpoilingTimeMultiplier",
+    cropGrowthSpeedMultiplier: "CropGrowthSpeedMultiplier",
+    cropDecaySpeedMultiplier: "CropDecaySpeedMultiplier",
+    supplyCrateLootQualityMultiplier: "SupplyCrateLootQualityMultiplier",
+    fishingLootQualityMultiplier: "FishingLootQualityMultiplier",
+  };
 
-  multiplierKeys.forEach((key) => {
-    if (body[key] !== undefined) {
-      const val = body[key];
-      ss[key] = val;
-      gm[key] = val;
+  // --- 2. GAME.INI MULTIPLIERS ---
+  const gameMultipliers = {
+    genericXPMultiplier: "GenericXPMultiplier",
+    craftXPMultiplier: "CraftXPMultiplier",
+    harvestXPMultiplier: "HarvestXPMultiplier",
+    killXPMultiplier: "KillXPMultiplier",
+    specialXPMultiplier: "SpecialXPMultiplier",
+    craftingSkillBonusMultiplier: "CraftingSkillBonusMultiplier",
+    layEggIntervalMultiplier: "LayEggIntervalMultiplier",
+    matingIntervalMultiplier: "MatingIntervalMultiplier",
+    eggHatchSpeedMultiplier: "EggHatchSpeedMultiplier",
+    babyMatureSpeedMultiplier: "BabyMatureSpeedMultiplier",
+    babyFoodConsumptionSpeedMultiplier: "BabyFoodConsumptionSpeedMultiplier",
+    babyCuddleIntervalMultiplier: "BabyCuddleIntervalMultiplier",
+    wildDinoCharacterFoodDrainMultiplier:
+      "WildDinoCharacterFoodDrainMultiplier",
+  };
+
+  // Assign properly capitalized keys to GameUserSettings.ini [ServerSettings]
+  for (const [frontendKey, iniKey] of Object.entries(gusMultipliers)) {
+    if (body[frontendKey] !== undefined) {
+      ss[iniKey] = body[frontendKey];
     }
-  });
+  }
+
+  // Assign properly capitalized keys to Game.ini
+  for (const [frontendKey, iniKey] of Object.entries(gameMultipliers)) {
+    if (body[frontendKey] !== undefined) {
+      gm[iniKey] = body[frontendKey];
+    }
+  }
 
   const boolMap = {
     serverPVE: "ServerPVE",
@@ -1158,7 +1170,11 @@ app.post("/api/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
   }
 
   try {
-    fs.writeFileSync(gusPath, ini.stringify(gusConfig));
+    let rawGusData = ini.stringify(gusConfig);
+    // Strip out the backslashes that the INI library adds before periods
+    rawGusData = rawGusData.replace(/\\\./g, ".");
+
+    fs.writeFileSync(gusPath, rawGusData, "utf-8");
 
     // Custom stringifier for Game.ini to handle repeated ModIDS keys without brackets
     let gameIniContent = "";
