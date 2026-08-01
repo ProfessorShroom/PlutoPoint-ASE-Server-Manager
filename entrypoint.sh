@@ -34,7 +34,10 @@ fi
 mkdir -p /data /backup /app
 chown -R "$USER_ID:$GROUP_ID" /data /backup /app
 
-# 4. Ensure SteamCMD binaries are executable before the app uses them
+# 4. Ensure SteamCMD is writable and executable for the runtime user
+if [ -d /opt/steamcmd ]; then
+  chown -R "$USER_ID:$GROUP_ID" /opt/steamcmd
+fi
 if [ -f /opt/steamcmd/steamcmd.sh ]; then chmod +x /opt/steamcmd/steamcmd.sh; fi
 if [ -f /opt/steamcmd/linux32/steamcmd ]; then chmod +x /opt/steamcmd/linux32/steamcmd; fi
 if [ -f /opt/steamcmd/linux64/steamcmd ]; then chmod +x /opt/steamcmd/linux64/steamcmd; fi
