@@ -200,7 +200,18 @@ router.post(
       if (serverLogs[server.id].length > 500) serverLogs[server.id].shift();
     });
     serverProcess.stderr.on("data", (data) => {
-      serverLogs[server.id].push(`ERROR: ${data.toString()}`);
+      const text = data.toString();
+      const lines = text.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line) return;
+        const isSteamApiWarning =
+          /\[S_API FAIL\]|SteamAPI_Init\(\) failed|SteamAPI_IsSteamRunning\(\) failed|Setting breakpad minidump AppID/.test(
+            line,
+          );
+        serverLogs[server.id].push(
+          isSteamApiWarning ? `[INFO] ${line}` : `ERROR: ${line}`,
+        );
+      });
       if (serverLogs[server.id].length > 500) serverLogs[server.id].shift();
     });
     serverProcess.on("close", (code) => {
