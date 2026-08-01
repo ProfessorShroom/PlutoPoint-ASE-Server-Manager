@@ -34,6 +34,53 @@ const deleteSection = (config, desired) => {
   if (key) delete config[key];
 };
 
+const normalizeIniSections = (config) => {
+  const normalized = { ...config };
+
+  const tryMoveNestedSection = (sourceSection, nestedKey) => {
+    const section = normalized[sourceSection];
+    if (!section || typeof section !== "object" || Array.isArray(section))
+      return;
+    const nestedSection = section[nestedKey];
+    if (
+      nestedSection &&
+      typeof nestedSection === "object" &&
+      !Array.isArray(nestedSection)
+    ) {
+      const targetSection = `${sourceSection}.${nestedKey}`;
+      normalized[targetSection] = normalized[targetSection] || nestedSection;
+      delete section[nestedKey];
+      if (Object.keys(section).length === 0) delete normalized[sourceSection];
+    }
+  };
+
+  const tryMoveDottedKeys = (sourceSection, nestedKey) => {
+    const section = normalized[sourceSection];
+    if (!section || typeof section !== "object" || Array.isArray(section))
+      return;
+
+    const targetSection = `${sourceSection}.${nestedKey}`;
+    for (const key of Object.keys(section)) {
+      const prefix = `${nestedKey}.`;
+      if (key.startsWith(prefix)) {
+        const nestedKeyName = key.slice(prefix.length);
+        normalized[targetSection] = normalized[targetSection] || {};
+        normalized[targetSection][nestedKeyName] = section[key];
+        delete section[key];
+      }
+    }
+
+    if (Object.keys(section).length === 0) delete normalized[sourceSection];
+  };
+
+  tryMoveNestedSection("/Script/ShooterGame", "ShooterGameUserSettings");
+  tryMoveNestedSection("/Script/Engine", "GameSession");
+  tryMoveDottedKeys("/Script/ShooterGame", "ShooterGameUserSettings");
+  tryMoveDottedKeys("/Script/Engine", "GameSession");
+
+  return normalized;
+};
+
 const formatIniValue = (value) => {
   if (typeof value === "boolean") return value ? "True" : "False";
   if (value === undefined || value === null) return "";
@@ -117,9 +164,13 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
 
   try {
     if (fs.existsSync(gusPath))
-      gusConfig = ini.parse(fs.readFileSync(gusPath, "utf-8"));
+      gusConfig = normalizeIniSections(
+        ini.parse(fs.readFileSync(gusPath, "utf-8")),
+      );
     if (fs.existsSync(gamePath))
-      gameConfig = ini.parse(fs.readFileSync(gamePath, "utf-8"));
+      gameConfig = normalizeIniSections(
+        ini.parse(fs.readFileSync(gamePath, "utf-8")),
+      );
   } catch (e) {}
 
   const ss = getSection(gusConfig, "ServerSettings") || {};
@@ -407,9 +458,13 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
 
   try {
     if (fs.existsSync(gusPath))
-      gusConfig = ini.parse(fs.readFileSync(gusPath, "utf-8"));
+      gusConfig = normalizeIniSections(
+        ini.parse(fs.readFileSync(gusPath, "utf-8")),
+      );
     if (fs.existsSync(gamePath))
-      gameConfig = ini.parse(fs.readFileSync(gamePath, "utf-8"));
+      gameConfig = normalizeIniSections(
+        ini.parse(fs.readFileSync(gamePath, "utf-8")),
+      );
   } catch (e) {}
 
   const gmSectionName =
@@ -554,7 +609,7 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
 
   if (body.npcReplacements && Array.isArray(body.npcReplacements)) {
     gm.NPCReplacements = body.npcReplacements.map(
-      (r) => `FromClassName="${r.from}",ToClassName="${r.to}"`,
+      (r) => `(FromClassName="${r.from}",ToClassName="${r.to}")`,
     );
   } else {
     delete gm.NPCReplacements;
@@ -563,7 +618,7 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
   if (body.engramEntries && Array.isArray(body.engramEntries)) {
     gm.OverrideNamedEngramEntries = body.engramEntries.map(
       (e) =>
-        `EngramClassName="${e.className}",EngramLevelRequirement=${e.level},EngramPointsCost=${e.points},EngramHidden=${e.hidden ? "True" : "False"},RemoveEngramPreReq=${e.removePreReq ? "True" : "False"}`,
+        `(EngramClassName="${e.className}",EngramLevelRequirement=${e.level},EngramPointsCost=${e.points},EngramHidden=${e.hidden ? "True" : "False"},RemoveEngramPreReq=${e.removePreReq ? "True" : "False"})`,
     );
   } else {
     delete gm.OverrideNamedEngramEntries;
@@ -574,10 +629,10 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
       const resStrs = c.resources
         .map(
           (r) =>
-            `ResourceItemTypeString="${r.type}",BaseResourceRequirement=${r.amount},bCraftUsingSoloCrafting=False`,
+            `(ResourceItemTypeString="${r.type}",BaseResourceRequirement=${r.amount},bCraftUsingSoloCrafting=False`,
         )
         .join(",");
-      return `ItemClassString="${c.itemClass}",(${resStrs})`;
+      return `(ItemClassString="${c.itemClass}",BaseCraftingResourceRequirements=(${resStrs}))`;
     });
   } else {
     delete gm.ConfigOverrideItemCraftingCosts;
