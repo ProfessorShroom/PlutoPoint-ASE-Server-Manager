@@ -4,7 +4,7 @@ const session = require("express-session");
 const authRoutes = require("./routes/auth");
 const serverRoutes = require("./routes/servers");
 const controlRoutes = require("./routes/control");
-const backupRoutes = require("./routes/backups");
+const backupRoutes = require("./routes/backup");
 const settingRoutes = require("./routes/settings");
 
 const app = express();
@@ -30,6 +30,15 @@ app.use("/api", backupRoutes);
 app.use("/api", settingRoutes);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`ARK Manager server running on port ${PORT}`);
-});
+
+function startServer() {
+  return app.listen(PORT, () => {
+    console.log(`ARK Manager server running on port ${PORT}`);
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };

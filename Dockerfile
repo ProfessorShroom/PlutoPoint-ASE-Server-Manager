@@ -39,9 +39,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Application setup
 WORKDIR /app
 
-COPY package.json package.json
-COPY server.js server.js
-COPY public/ public/
+COPY . .
 
 RUN npm install --production
 
