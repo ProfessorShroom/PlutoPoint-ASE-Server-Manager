@@ -15,8 +15,18 @@ else
     groupadd -g "$GROUP_ID" "$GROUP_NAME"
 fi
 
-if ! getent passwd appuser > /dev/null 2>&1; then
-    useradd -l -u "$USER_ID" -g "$GROUP_NAME" -m -s /bin/bash appuser
+if getent passwd "$USER_ID" > /dev/null 2>&1; then
+    USER_NAME=$(getent passwd "$USER_ID" | cut -d: -f1)
+elif getent passwd appuser > /dev/null 2>&1; then
+    USER_NAME=appuser
+else
+    USER_NAME=appuser
+    useradd -l -u "$USER_ID" -g "$GROUP_NAME" -m -s /bin/bash "$USER_NAME"
+fi
+
+if ! id -u "$USER_NAME" > /dev/null 2>&1; then
+    echo "Unable to resolve a valid user for UID $USER_ID" >&2
+    exit 1
 fi
 
 # 3. Fix ownership of your app/data directories so the new user can read/write them
