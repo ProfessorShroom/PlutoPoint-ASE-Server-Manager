@@ -870,6 +870,13 @@ const compareVersionStrings = (a, b) => {
   return 0;
 };
 
+const isStableTag = (name) => /^[0-9]+(\.[0-9]+)*$/.test(name);
+const isPreReleaseTag = (name) => /^[0-9]+(\.[0-9]+)*[a-zA-Z]+$/.test(name);
+const getReleaseSuffix = (name) => {
+  const match = name.match(/^[0-9]+(\.[0-9]+)*([a-zA-Z]+)$/);
+  return match ? match[2] : null;
+};
+
 const fetchLatestDockerTag = () =>
   new Promise((resolve, reject) => {
     const url = `https://hub.docker.com/v2/repositories/${dockerHubRepository}/tags?page_size=50&ordering=last_updated`;
@@ -889,40 +896,51 @@ const fetchLatestDockerTag = () =>
                 return resolve(null);
               }
 
-              let latestVersionTag = null;
-              let latestVersionTime = null;
+              let latestStableTag = null;
+              let latestStableTime = null;
+              const latestPreTags = {};
               let latestTag = null;
+
               payload.results.forEach((tag) => {
                 if (tag.name === "latest") {
                   latestTag = tag;
                   return;
                 }
-                if (/^[0-9]/.test(tag.name)) {
+                if (isStableTag(tag.name)) {
                   if (
-                    !latestVersionTag ||
-                    compareVersionStrings(tag.name, latestVersionTag) > 0
+                    !latestStableTag ||
+                    compareVersionStrings(tag.name, latestStableTag) > 0
                   ) {
-                    latestVersionTag = tag.name;
-                    latestVersionTime = tag.last_updated;
+                    latestStableTag = tag.name;
+                    latestStableTime = tag.last_updated;
+                  }
+                  return;
+                }
+                if (isPreReleaseTag(tag.name)) {
+                  const suffix = getReleaseSuffix(tag.name);
+                  if (!suffix) return;
+                  if (
+                    !latestPreTags[suffix] ||
+                    compareVersionStrings(tag.name, latestPreTags[suffix].tag) >
+                      0
+                  ) {
+                    latestPreTags[suffix] = {
+                      tag: tag.name,
+                      lastUpdated: tag.last_updated,
+                    };
                   }
                 }
               });
 
-              if (latestVersionTag) {
-                return resolve({
-                  tag: latestVersionTag,
-                  lastUpdated: latestVersionTime,
-                });
-              }
-
-              if (latestTag) {
-                return resolve({
-                  tag: latestTag.name,
-                  lastUpdated: latestTag.last_updated,
-                });
-              }
-
-              resolve(null);
+              return resolve({
+                latestStableTag: latestStableTag
+                  ? { tag: latestStableTag, lastUpdated: latestStableTime }
+                  : null,
+                latestPreTags,
+                latestTag: latestTag
+                  ? { tag: latestTag.name, lastUpdated: latestTag.last_updated }
+                  : null,
+              });
             } catch (err) {
               reject(err);
             }
@@ -942,10 +960,35 @@ router.get("/version", async (req, res) => {
 
   try {
     const latest = await fetchLatestDockerTag();
-    if (latest && latest.tag) {
-      response.latestDockerTag = latest.tag;
-      response.updateAvailable = latest.tag !== packageJson.version;
-      response.latestDockerLastUpdated = latest.lastUpdated;
+    if (!latest) {
+      return res.json(response);
+    }
+
+    const currentVersion = packageJson.version;
+    const currentStable = isStableTag(currentVersion);
+    const currentSuffix = getReleaseSuffix(currentVersion);
+
+    let candidate = null;
+    if (currentStable) {
+      candidate = latest.latestStableTag;
+    } else if (currentSuffix && latest.latestPreTags[currentSuffix]) {
+      candidate = latest.latestPreTags[currentSuffix];
+    }
+
+    if (
+      !candidate &&
+      currentStable &&
+      latest.latestTag &&
+      isStableTag(latest.latestTag.tag)
+    ) {
+      candidate = latest.latestTag;
+    }
+
+    if (candidate) {
+      response.latestDockerTag = candidate.tag;
+      response.latestDockerLastUpdated = candidate.lastUpdated;
+      response.updateAvailable =
+        compareVersionStrings(candidate.tag, currentVersion) > 0;
     }
   } catch (err) {
     response.error = "Unable to check Docker Hub for updates.";
