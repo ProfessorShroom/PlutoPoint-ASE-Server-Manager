@@ -118,9 +118,10 @@ async function installServer() {
       const lines = chunk.split("\n\n");
 
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("data: ")) {
           try {
-            const data = JSON.parse(line.replace("data: ", ""));
+            const data = JSON.parse(trimmed.replace(/^data:\s*/, ""));
             if (data.log) {
               logOutput.innerText += data.log;
               logOutput.scrollTop = logOutput.scrollHeight;

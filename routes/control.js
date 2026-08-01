@@ -26,7 +26,33 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
     res.write(`data: ${JSON.stringify({ log: data.toString() })}\n\n`);
   sendLog(`Starting SteamCMD installation for ${server.name}...\n`);
 
-  const steamcmd = spawn("/usr/games/steamcmd", [
+  const steamcmdCandidates = [
+    process.env.STEAMCMD_PATH,
+    "/usr/local/bin/steamcmd",
+    "/opt/steamcmd/steamcmd.sh",
+    "/usr/games/steamcmd",
+  ].filter(Boolean);
+
+  const steamcmdPath = steamcmdCandidates.find((candidate) => {
+    try {
+      return fs.existsSync(candidate);
+    } catch (error) {
+      return false;
+    }
+  });
+
+  if (!steamcmdPath) {
+    sendLog(
+      `ERROR: SteamCMD binary not found. Checked: ${steamcmdCandidates.join(", ")}\n`,
+    );
+    res.write(`data: ${JSON.stringify({ done: true, code: 127 })}\n\n`);
+    res.end();
+    return;
+  }
+
+  sendLog(`Using SteamCMD at ${steamcmdPath}\n`);
+
+  const steamcmd = spawn(steamcmdPath, [
     "+force_install_dir",
     server.path,
     "+login",
@@ -36,6 +62,12 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
     "+validate",
     "+quit",
   ]);
+
+  steamcmd.on("error", (error) => {
+    sendLog(`ERROR: Failed to start SteamCMD: ${error.message}\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    res.end();
+  });
 
   steamcmd.stdout.on("data", (data) => sendLog(data.toString()));
   steamcmd.stderr.on("data", (data) => sendLog(`ERROR: ${data.toString()}`));
