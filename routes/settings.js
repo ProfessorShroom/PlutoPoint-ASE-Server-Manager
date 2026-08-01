@@ -534,26 +534,8 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
     let rawGusData = ini.stringify(gusConfig).replace(/\\\./g, ".");
     fs.writeFileSync(gusPath, rawGusData, "utf-8");
 
-    let gameIniContent = "";
-    for (const [section, keys] of Object.entries(gameConfig)) {
-      gameIniContent += `[${section}]\n`;
-      for (const [key, val] of Object.entries(keys)) {
-        if (key === "ModIDS" && Array.isArray(val)) {
-          val.forEach((modId) => {
-            gameIniContent += `ModIDS=${modId}\n`;
-          });
-        } else if (Array.isArray(val)) {
-          val.forEach((item) => {
-            gameIniContent += `${key}=${item}\n`;
-          });
-        } else {
-          gameIniContent += `${key}=${val}\n`;
-        }
-      }
-      gameIniContent += "\n";
-    }
-
-    fs.writeFileSync(gamePath, gameIniContent.trim(), "utf-8");
+    const rawGameData = ini.stringify(gameConfig);
+    fs.writeFileSync(gamePath, rawGameData, "utf-8");
     res.json({ message: "Settings saved successfully!" });
   } catch (err) {
     console.error("Failed to write config files:", err);
