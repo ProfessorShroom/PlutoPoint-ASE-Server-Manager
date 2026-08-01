@@ -1,5 +1,5 @@
 const fs = require("fs");
-const path = (path = require("path"));
+const path = require("path");
 const { exec } = require("child_process");
 const crypto = require("crypto");
 
