@@ -73,10 +73,17 @@ const normalizeIniSections = (config) => {
     if (Object.keys(section).length === 0) delete normalized[sourceSection];
   };
 
+  // Also handle shooter game mode dotted keys like 'ShooterGameMode.X=..'
+  // which should map to '/Script/ShooterGame.ShooterGameMode'
+  tryMoveDottedKeys("/Script/ShooterGame", "ShooterGameMode");
+
   tryMoveNestedSection("/Script/ShooterGame", "ShooterGameUserSettings");
   tryMoveNestedSection("/Script/Engine", "GameSession");
   tryMoveDottedKeys("/Script/ShooterGame", "ShooterGameUserSettings");
   tryMoveDottedKeys("/Script/Engine", "GameSession");
+
+  // Also ensure ShooterGameMode dotted keys are moved
+  tryMoveDottedKeys("/Script/ShooterGame", "ShooterGameMode");
 
   return normalized;
 };
@@ -201,79 +208,96 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
   const isTrue = (val) => val === "True" || val === true;
 
   let npcReplacements = [];
-  if (gm.NPCReplacements) {
-    const rawArr = Array.isArray(gm.NPCReplacements)
-      ? gm.NPCReplacements
-      : [gm.NPCReplacements];
-    rawArr.forEach((entry) => {
-      const match = entry.match(
-        /FromClassName="([^"]+)",ToClassName="([^"]*)"/,
-      );
-      if (match) {
-        npcReplacements.push({ from: match[1], to: match[2] });
-      } else {
-        const parts = entry.split(",");
-        if (parts.length >= 2)
-          npcReplacements.push({ from: parts[0].trim(), to: parts[1].trim() });
-        else if (parts.length === 1)
-          npcReplacements.push({ from: parts[0].trim(), to: "" });
-      }
-    });
-  }
-
-  let engramEntries = [];
-  if (gm.OverrideNamedEngramEntries) {
-    const rawArr = Array.isArray(gm.OverrideNamedEngramEntries)
-      ? gm.OverrideNamedEngramEntries
-      : [gm.OverrideNamedEngramEntries];
-    rawArr.forEach((entry) => {
-      const classNameMatch = entry.match(/EngramClassName="([^"]+)"/);
-      const levelMatch = entry.match(/EngramLevelRequirement=(\d+)/);
-      const pointsMatch = entry.match(/EngramPointsCost=(\d+)/);
-      const hiddenMatch =
-        entry.match(/EngramHidden=(True|False)/i) ||
-        entry.match(/bHideInEngramViewer=(True|False)/i);
-      const preReqMatch =
-        entry.match(/RemoveEngramPreReq=(True|False)/i) ||
-        entry.match(/bRemoveEngramPrerequisite=(True|False)/i);
-      if (classNameMatch) {
-        engramEntries.push({
-          className: classNameMatch[1],
-          level: levelMatch ? parseInt(levelMatch[1], 10) : 1,
-          points: pointsMatch ? parseInt(pointsMatch[1], 10) : 1,
-          hidden: hiddenMatch ? isTrue(hiddenMatch[1]) : false,
-          removePreReq: preReqMatch ? isTrue(preReqMatch[1]) : false,
-        });
-      }
-    });
-  }
-
-  let craftingCosts = [];
-  if (gm.ConfigOverrideItemCraftingCosts) {
-    const rawArr = Array.isArray(gm.ConfigOverrideItemCraftingCosts)
-      ? gm.ConfigOverrideItemCraftingCosts
-      : [gm.ConfigOverrideItemCraftingCosts];
-    const costMap = {};
-    rawArr.forEach((entry) => {
-      const itemClassMatch = entry.match(/ItemClassString="([^"]+)"/);
-      if (itemClassMatch) {
-        const itemClass = itemClassMatch[1];
-        if (!costMap[itemClass]) costMap[itemClass] = [];
-        const resRegex =
-          /ResourceItemTypeString="([^"]+)",(?:BaseResourceRequirement|ResourceQuantity)=([\d.]+)/g;
-        let resMatch;
-        while ((resMatch = resRegex.exec(entry)) !== null) {
-          costMap[itemClass].push({
-            type: resMatch[1],
-            amount: parseFloat(resMatch[2]),
-          });
+  // Collect NPCReplacements from any section (handles dotted keys and duplicates)
+  const collectFieldValues = (cfg, fieldName) => {
+    const out = [];
+    for (const sec of Object.values(cfg)) {
+      if (!sec || typeof sec !== "object") continue;
+      for (const k of Object.keys(sec)) {
+        if (
+          k.toLowerCase() === fieldName.toLowerCase() ||
+          k.toLowerCase().endsWith("." + fieldName.toLowerCase())
+        ) {
+          const v = sec[k];
+          if (Array.isArray(v)) out.push(...v);
+          else out.push(v);
         }
       }
-    });
-    for (const [itemClass, resources] of Object.entries(costMap)) {
-      craftingCosts.push({ itemClass, resources });
     }
-  }
+    return out.filter(Boolean);
+  };
+
+  const rawNpc = collectFieldValues(gameConfig, "NPCReplacements");
+  rawNpc.forEach((entry) => {
+    const str = String(entry);
+    const match = str.match(
+      /FromClassName=\s*"([^"]+)",?\s*ToClassName=\s*"([^"]*)"/,
+    );
+    if (match) npcReplacements.push({ from: match[1], to: match[2] });
+    else {
+      // fallback: split on comma and take first two tokens
+      const parts = str.replace(/^[()]+|[()]+$/g, "").split(",");
+      if (parts.length >= 2)
+        npcReplacements.push({ from: parts[0].trim(), to: parts[1].trim() });
+      else if (parts.length === 1)
+        npcReplacements.push({ from: parts[0].trim(), to: "" });
+    }
+  });
+
+  let engramEntries = [];
+  // Collect OverrideNamedEngramEntries from any section
+  const rawEngram = collectFieldValues(
+    gameConfig,
+    "OverrideNamedEngramEntries",
+  );
+  rawEngram.forEach((entry) => {
+    const str = String(entry);
+    const classNameMatch = str.match(/EngramClassName=\s*"([^"]+)"/);
+    const levelMatch = str.match(/EngramLevelRequirement=(\d+)/);
+    const pointsMatch = str.match(/EngramPointsCost=(\d+)/);
+    const hiddenMatch =
+      str.match(/EngramHidden=(True|False)/i) ||
+      str.match(/bHideInEngramViewer=(True|False)/i);
+    const preReqMatch =
+      str.match(/RemoveEngramPreReq=(True|False)/i) ||
+      str.match(/bRemoveEngramPrerequisite=(True|False)/i);
+    if (classNameMatch) {
+      engramEntries.push({
+        className: classNameMatch[1],
+        level: levelMatch ? parseInt(levelMatch[1], 10) : 1,
+        points: pointsMatch ? parseInt(pointsMatch[1], 10) : 1,
+        hidden: hiddenMatch ? isTrue(hiddenMatch[1]) : false,
+        removePreReq: preReqMatch ? isTrue(preReqMatch[1]) : false,
+      });
+    }
+  });
+
+  let craftingCosts = [];
+  // Collect crafting cost overrides from any section
+  const rawCraft = collectFieldValues(
+    gameConfig,
+    "ConfigOverrideItemCraftingCosts",
+  );
+  const costMap = {};
+  rawCraft.forEach((entry) => {
+    const str = String(entry);
+    const itemClassMatch = str.match(/ItemClassString=\s*"([^"]+)"/);
+    if (itemClassMatch) {
+      const itemClass = itemClassMatch[1];
+      if (!costMap[itemClass]) costMap[itemClass] = [];
+      const resRegex =
+        /ResourceItemTypeString=\s*"([^"]+)",(?:BaseResourceRequirement|ResourceQuantity)=([\d.]+)/g;
+      let resMatch;
+      while ((resMatch = resRegex.exec(str)) !== null) {
+        costMap[itemClass].push({
+          type: resMatch[1],
+          amount: parseFloat(resMatch[2]),
+        });
+      }
+    }
+  });
+  for (const [itemClass, resources] of Object.entries(costMap))
+    craftingCosts.push({ itemClass, resources });
 
   const getVal = (sources, key, defaultVal) => {
     const lowerKey = key.toLowerCase();

@@ -1,6 +1,6 @@
 {
   "name": "plutopoint-ase-server-manager",
-  "version": "1.4.0b",
+  "version": "1.4.1b",
   "description": "PlutoPoint ARK Survival Evolved Server Manager",
   "main": "server.js",
   "scripts": {
