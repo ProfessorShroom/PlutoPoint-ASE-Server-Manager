@@ -1867,10 +1867,7 @@
       async function saveSettings(e) {
               e.preventDefault();
               if (!currentServerId) return;
-
-              const inputs = document.querySelectorAll(
-                "#settings-form input, #settings-form select",
-              );
+              const inputs = document.querySelectorAll("#settings-form input[id^='cfg-'], #settings-form select[id^='cfg-']");
               const payload = {};
 
               inputs.forEach((i) => {
