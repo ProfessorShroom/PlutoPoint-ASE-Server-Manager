@@ -8,12 +8,15 @@ GROUP_ID=${PGID:-1000}
 echo "Starting container with UID: $USER_ID and GID: $GROUP_ID"
 
 # 2. Create a user/group dynamically if they don't already exist
-if ! getent group appgroup > /dev/null 2>&1; then
-    groupadd -g "$GROUP_ID" appgroup
+if getent group "$GROUP_ID" > /dev/null 2>&1; then
+    GROUP_NAME=$(getent group "$GROUP_ID" | cut -d: -f1)
+else
+    GROUP_NAME=appgroup
+    groupadd -g "$GROUP_ID" "$GROUP_NAME"
 fi
 
 if ! getent passwd appuser > /dev/null 2>&1; then
-    useradd -l -u "$USER_ID" -g appgroup -m -s /bin/bash appuser
+    useradd -l -u "$USER_ID" -g "$GROUP_NAME" -m -s /bin/bash appuser
 fi
 
 # 3. Fix ownership of your app/data directories so the new user can read/write them
