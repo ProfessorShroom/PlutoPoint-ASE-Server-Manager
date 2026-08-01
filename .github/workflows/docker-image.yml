@@ -11,12 +11,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Automatically read the version from package.json
+      # Automatically read the version from package.json and determine target tag channel
       - name: Extract version from package.json
         id: version
         run: |
-          VERSION=$(jq -r .version package.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION=$(jq -r .version package.json) 
+          echo "version=$VERSION" >> $GITHUB_OUTPUT 
+
+          # Check if version contains 'b'
+          if [[ "$VERSION" == *b* ]]; then
+            echo "channel=beta" >> $GITHUB_OUTPUT
+            echo "Detected beta version: $VERSION -> tagging as :beta"
+          else
+            echo "channel=latest" >> $GITHUB_OUTPUT
+            echo "Detected stable version: $VERSION -> tagging as :latest"
+          fi
+
           echo "Extracted version: $VERSION"
 
       - name: Log in to Docker Hub
@@ -34,7 +44,7 @@ jobs:
         with:
           images: professorshroom/plutopoint-ase-server-manager
           tags: |
-            type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.channel }} 
             type=raw,value=${{ steps.version.outputs.version }}
 
       - name: Build and push Docker image
