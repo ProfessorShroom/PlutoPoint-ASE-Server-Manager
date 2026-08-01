@@ -35,4 +35,4 @@ mkdir -p /data /backup /app
 chown -R "$USER_ID:$GROUP_ID" /data /backup /app
 
 # 4. Drop root privileges and execute the main container command using gosu
-exec gosu appuser "$@"
+exec gosu "$USER_NAME" "$@"
