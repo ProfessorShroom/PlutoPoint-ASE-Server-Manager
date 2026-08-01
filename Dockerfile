@@ -2,25 +2,27 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Automatically accept Steam license agreement to prevent prompts from failing the build
+# 1. Enable i386 architecture and multiverse repository first
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository multiverse
+
+# 2. Automatically accept Steam license agreement
 RUN echo "steam steam/question select \"I AGREE\"" | debconf-set-selections && \
     echo "steam steam/license note ''" | debconf-set-selections
 
-# Install prerequisites, gosu, enable i386 architecture for SteamCMD, and install packages
+# 3. Install system prerequisites, gosu, and steamcmd safely in a separate layer
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
-    software-properties-common \
     lib32gcc-s1 \
     p7zip-full \
     gosu \
-    && dpkg --add-architecture i386 \
-    && add-apt-repository multiverse \
-    && apt-get update && apt-get install -y \
     steamcmd \
     && rm -rf /var/lib/apt/lists/*
 
-# Install modern Node.js (v20 LTS)
+# 4. Install modern Node.js (v20 LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
