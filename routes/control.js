@@ -57,19 +57,28 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
   fs.mkdirSync(steamHome, { recursive: true });
   fs.mkdirSync(steamTmp, { recursive: true });
 
+  const steamcmdArgs = [
+    "+force_install_dir",
+    server.path,
+    "+login",
+    "anonymous",
+    "+app_update",
+    "376030",
+    "+validate",
+    "+quit",
+  ];
+
+  sendLog(`Running command: ${steamcmdPath} ${steamcmdArgs.join(" ")}\n`);
+  sendLog(`Working directory: ${server.path}\n`);
+
   const steamcmd = spawn(
-    steamcmdPath,
+    "/bin/sh",
     [
-      "+force_install_dir",
-      server.path,
-      "+login",
-      "anonymous",
-      "+app_update",
-      "376030",
-      "+validate",
-      "+quit",
+      "-lc",
+      `${steamcmdPath} ${steamcmdArgs.map((arg) => `'${arg.replace(/'/g, "'\\''")}'`).join(" ")}`,
     ],
     {
+      cwd: server.path,
       env: {
         ...process.env,
         HOME: steamHome,
