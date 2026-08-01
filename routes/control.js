@@ -28,8 +28,8 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
 
   const steamcmdCandidates = [
     process.env.STEAMCMD_PATH,
-    "/usr/local/bin/steamcmd",
     "/opt/steamcmd/steamcmd.sh",
+    "/usr/local/bin/steamcmd",
     "/usr/games/steamcmd",
   ].filter(Boolean);
 

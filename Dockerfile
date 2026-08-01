@@ -27,7 +27,8 @@ RUN apt-get update \
 RUN mkdir -p /opt/steamcmd \
  && curl -fsSL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" \
     | tar -C /opt/steamcmd -xz \
- && ln -s /opt/steamcmd/steamcmd.sh /usr/local/bin/steamcmd \
+ && chmod +x /opt/steamcmd/steamcmd.sh \
+ && printf '#!/bin/sh\nexec /opt/steamcmd/steamcmd.sh "$@"\n' > /usr/local/bin/steamcmd \
  && chmod +x /usr/local/bin/steamcmd
 
 # Install Node.js (v20 LTS) and keep image small
