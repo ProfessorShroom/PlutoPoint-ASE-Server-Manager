@@ -765,101 +765,168 @@ app.get("/api/settings/:serverId", isAuthenticated, (req, res) => {
     }
   }
 
+  // --- NEW HELPER FUNCTION ---
+  // Looks for a key case-insensitively across multiple config objects, ignores empty strings.
+  const getVal = (sources, key, defaultVal) => {
+    const lowerKey = key.toLowerCase();
+    for (const source of sources) {
+      if (!source) continue;
+      const foundKey = Object.keys(source).find(
+        (k) => k.toLowerCase() === lowerKey,
+      );
+      if (
+        foundKey !== undefined &&
+        source[foundKey] !== undefined &&
+        source[foundKey] !== ""
+      ) {
+        return source[foundKey];
+      }
+    }
+    return defaultVal;
+  };
+
   res.json({
-    serverMap: ss.ActiveMap || "TheIsland",
-    sessionName:
-      session.SessionName || ss.SessionName || gusConfig.SessionName || "",
-    serverPassword: ss.ServerPassword || "",
-    serverAdminPassword: ss.ServerAdminPassword || "",
-    maxPlayers: gs.MaxPlayers || ss.MaxPlayers || 70,
-    difficultyOffset: ss.DifficultyOffset || 1.0,
-    overrideOfficialDifficulty: ss.OverrideOfficialDifficulty || 1.0,
-    maxTamedDinos: ss.MaxTamedDinos || 5000,
-    itemStackSizeMultiplier: ss.ItemStackSizeMultiplier || 1.0,
-    autoSavePeriodMinutes: ss.AutoSavePeriodMinutes || 15.0,
+    serverMap: getVal([ss], "ActiveMap", "TheIsland"),
+    sessionName: getVal([session, ss, gusConfig], "SessionName", ""),
+    serverPassword: getVal([ss], "ServerPassword", ""),
+    serverAdminPassword: getVal([ss], "ServerAdminPassword", ""),
+    maxPlayers: getVal([gs, ss], "MaxPlayers", 70),
+    difficultyOffset: getVal([ss], "DifficultyOffset", 1.0),
+    overrideOfficialDifficulty: getVal([ss], "OverrideOfficialDifficulty", 1.0),
+    maxTamedDinos: getVal([ss], "MaxTamedDinos", 5000),
+    itemStackSizeMultiplier: getVal([ss], "ItemStackSizeMultiplier", 1.0),
+    autoSavePeriodMinutes: getVal([ss], "AutoSavePeriodMinutes", 15.0),
 
-    motdMessage: motd.Message || "",
-    motdDuration: motd.Duration || 5,
+    motdMessage: getVal([motd], "Message", ""),
+    motdDuration: getVal([motd], "Duration", 5),
 
-    serverPVE: isTrue(ss.ServerPVE),
-    serverHardcore: isTrue(ss.ServerHardcore),
-    noTributeDownloads: isTrue(ss.NoTributeDownloads),
-    allowFlyerCarryPvE: isTrue(ss.AllowFlyerCarryPvE),
-    globalVoiceChat: isTrue(ss.GlobalVoiceChat),
-    proximityChat: isTrue(ss.ProximityChat),
-    allowThirdPersonPlayer: isTrue(ss.AllowThirdPersonPlayer),
-    showMapPlayerLocation: isTrue(ss.ShowMapPlayerLocation),
-    enablePvPGamma: isTrue(ss.EnablePvPGamma),
+    serverPVE: isTrue(getVal([ss], "ServerPVE")),
+    serverHardcore: isTrue(getVal([ss], "ServerHardcore")),
+    noTributeDownloads: isTrue(getVal([ss], "NoTributeDownloads")),
+    allowFlyerCarryPvE: isTrue(getVal([ss], "AllowFlyerCarryPvE")),
+    globalVoiceChat: isTrue(getVal([ss], "GlobalVoiceChat")),
+    proximityChat: isTrue(getVal([ss], "ProximityChat")),
+    allowThirdPersonPlayer: isTrue(getVal([ss], "AllowThirdPersonPlayer")),
+    showMapPlayerLocation: isTrue(getVal([ss], "ShowMapPlayerLocation")),
+    enablePvPGamma: isTrue(getVal([ss], "EnablePvPGamma")),
     disableStructurePlacementCollision: isTrue(
-      ss.DisableStructurePlacementCollision ||
-        gm.bDisableStructurePlacementCollision,
+      getVal([ss, gm], "DisableStructurePlacementCollision") ||
+        getVal([ss, gm], "bDisableStructurePlacementCollision"),
     ),
-    rconEnabled: isTrue(ss.RCONEnabled),
-    rconPort: ss.RCONPort || 27020,
-    serverCrosshair: isTrue(ss.ServerCrosshair),
-    serverForceNoHUD: isTrue(ss.ServerForceNoHUD),
-    allowHitMarkers: isTrue(ss.AllowHitMarkers),
-    bDisableFriendlyFire: isTrue(gm.bDisableFriendlyFire),
-    bAllowUnlimitedRespecs: isTrue(gm.bAllowUnlimitedRespecs),
-    bUseCorpseLocator: isTrue(gm.bUseCorpseLocator),
-    allowAnyoneBabyImprintCuddle: isTrue(ss.AllowAnyoneBabyImprintCuddle),
+    rconEnabled: isTrue(getVal([ss], "RCONEnabled")),
+    rconPort: getVal([ss], "RCONPort", 27020),
+    serverCrosshair: isTrue(getVal([ss], "ServerCrosshair")),
+    serverForceNoHUD: isTrue(getVal([ss], "ServerForceNoHUD")),
+    allowHitMarkers: isTrue(getVal([ss], "AllowHitMarkers")),
+    bDisableFriendlyFire: isTrue(getVal([gm, ss], "bDisableFriendlyFire")),
+    bAllowUnlimitedRespecs: isTrue(getVal([gm, ss], "bAllowUnlimitedRespecs")),
+    bUseCorpseLocator: isTrue(getVal([gm, ss], "bUseCorpseLocator")),
+    allowAnyoneBabyImprintCuddle: isTrue(
+      getVal([ss], "AllowAnyoneBabyImprintCuddle"),
+    ),
     overrideStructurePlatformPrevention: isTrue(
-      ss.OverrideStructurePlatformPrevention,
+      getVal([ss], "OverrideStructurePlatformPrevention"),
     ),
 
     mods: modIdsStr,
 
-    tamingSpeedMultiplier:
-      ss.TamingSpeedMultiplier || gm.TamingSpeedMultiplier || 1.0,
-    harvestAmountMultiplier:
-      ss.HarvestAmountMultiplier || gm.HarvestAmountMultiplier || 1.0,
-    harvestHealthMultiplier: ss.HarvestHealthMultiplier || 1.0,
-    genericXPMultiplier:
-      gm.GenericXPMultiplier || ss.GenericXPMultiplier || 1.0,
-    craftXPMultiplier: gm.CraftXPMultiplier || 1.0,
-    harvestXPMultiplier: gm.HarvestXPMultiplier || 1.0,
-    killXPMultiplier: gm.KillXPMultiplier || 1.0,
-    specialXPMultiplier: gm.SpecialXPMultiplier || 1.0,
-    craftingSkillBonusMultiplier: gm.CraftingSkillBonusMultiplier || 1.0,
-    layEggIntervalMultiplier:
-      ss.LayEggIntervalMultiplier || gm.LayEggIntervalMultiplier || 1.0,
-    matingIntervalMultiplier:
-      ss.MatingIntervalMultiplier || gm.MatingIntervalMultiplier || 1.0,
-    eggHatchSpeedMultiplier:
-      ss.EggHatchSpeedMultiplier || gm.EggHatchSpeedMultiplier || 1.0,
-    babyMatureSpeedMultiplier:
-      ss.BabyMatureSpeedMultiplier || gm.BabyMatureSpeedMultiplier || 1.0,
-    babyFoodConsumptionSpeedMultiplier:
-      ss.BabyFoodConsumptionSpeedMultiplier || 1.0,
-    babyCuddleIntervalMultiplier: gm.BabyCuddleIntervalMultiplier || 1.0,
-    nightTimeSpeedScale:
-      ss.NightTimeSpeedScale || gm.NightTimeSpeedScale || 1.0,
-    dayTimeSpeedScale: ss.DayTimeSpeedScale || gm.DayTimeSpeedScale || 1.0,
-    resourcesRespawnPeriodMultiplier:
-      ss.ResourcesRespawnPeriodMultiplier || 1.0,
-    playerDamageMultiplier:
-      ss.PlayerDamageMultiplier || gm.PlayerDamageMultiplier || 1.0,
-    dinoDamageMultiplier:
-      ss.DinoDamageMultiplier || gm.DinoDamageMultiplier || 1.0,
-    tamedDinoDamageMultiplier: ss.TamedDinoDamageMultiplier || 1.0,
-    dinoResistanceMultiplier: ss.DinoResistanceMultiplier || 1.0,
-    tamedDinoResistanceMultiplier: ss.TamedDinoResistanceMultiplier || 1.0,
-    structureDamageMultiplier:
-      ss.StructureDamageMultiplier || gm.StructureDamageMultiplier || 1.0,
-    structureResistanceMultiplier: ss.StructureResistanceMultiplier || 1.0,
-    playerHarvestingDamageMultiplier:
-      gm.PlayerHarvestingDamageMultiplier || 1.0,
-    dinoHarvestingDamageMultiplier: gm.DinoHarvestingDamageMultiplier || 1.0,
-    wildDinoCharacterFoodDrainMultiplier:
-      ss.WildDinoCharacterFoodDrainMultiplier ||
-      gm.WildDinoCharacterFoodDrainMultiplier ||
+    tamingSpeedMultiplier: getVal([ss, gm], "TamingSpeedMultiplier", 1.0),
+    harvestAmountMultiplier: getVal([ss, gm], "HarvestAmountMultiplier", 1.0),
+    harvestHealthMultiplier: getVal([ss, gm], "HarvestHealthMultiplier", 1.0),
+    genericXPMultiplier: getVal([ss, gm], "GenericXPMultiplier", 1.0),
+    craftXPMultiplier: getVal([ss, gm], "CraftXPMultiplier", 1.0),
+    harvestXPMultiplier: getVal([ss, gm], "HarvestXPMultiplier", 1.0),
+    killXPMultiplier: getVal([ss, gm], "KillXPMultiplier", 1.0),
+    specialXPMultiplier: getVal([ss, gm], "SpecialXPMultiplier", 1.0),
+    craftingSkillBonusMultiplier: getVal(
+      [ss, gm],
+      "CraftingSkillBonusMultiplier",
       1.0,
-    globalSpoilingTimeMultiplier: ss.GlobalSpoilingTimeMultiplier || 1.0,
-    cropGrowthSpeedMultiplier: ss.CropGrowthSpeedMultiplier || 1.0,
-    cropDecaySpeedMultiplier: ss.CropDecaySpeedMultiplier || 1.0,
-    supplyCrateLootQualityMultiplier:
-      ss.SupplyCrateLootQualityMultiplier || 1.0,
-    fishingLootQualityMultiplier: ss.FishingLootQualityMultiplier || 1.0,
+    ),
+    layEggIntervalMultiplier: getVal([ss, gm], "LayEggIntervalMultiplier", 1.0),
+    matingIntervalMultiplier: getVal([ss, gm], "MatingIntervalMultiplier", 1.0),
+    eggHatchSpeedMultiplier: getVal([ss, gm], "EggHatchSpeedMultiplier", 1.0),
+    babyMatureSpeedMultiplier: getVal(
+      [ss, gm],
+      "BabyMatureSpeedMultiplier",
+      1.0,
+    ),
+    babyFoodConsumptionSpeedMultiplier: getVal(
+      [ss, gm],
+      "BabyFoodConsumptionSpeedMultiplier",
+      1.0,
+    ),
+    babyCuddleIntervalMultiplier: getVal(
+      [ss, gm],
+      "BabyCuddleIntervalMultiplier",
+      1.0,
+    ),
+    nightTimeSpeedScale: getVal([ss, gm], "NightTimeSpeedScale", 1.0),
+    dayTimeSpeedScale: getVal([ss, gm], "DayTimeSpeedScale", 1.0),
+    resourcesRespawnPeriodMultiplier: getVal(
+      [ss, gm],
+      "ResourcesRespawnPeriodMultiplier",
+      1.0,
+    ),
+    playerDamageMultiplier: getVal([ss, gm], "PlayerDamageMultiplier", 1.0),
+    dinoDamageMultiplier: getVal([ss, gm], "DinoDamageMultiplier", 1.0),
+    tamedDinoDamageMultiplier: getVal(
+      [ss, gm],
+      "TamedDinoDamageMultiplier",
+      1.0,
+    ),
+    dinoResistanceMultiplier: getVal([ss, gm], "DinoResistanceMultiplier", 1.0),
+    tamedDinoResistanceMultiplier: getVal(
+      [ss, gm],
+      "TamedDinoResistanceMultiplier",
+      1.0,
+    ),
+    structureDamageMultiplier: getVal(
+      [ss, gm],
+      "StructureDamageMultiplier",
+      1.0,
+    ),
+    structureResistanceMultiplier: getVal(
+      [ss, gm],
+      "StructureResistanceMultiplier",
+      1.0,
+    ),
+    playerHarvestingDamageMultiplier: getVal(
+      [ss, gm],
+      "PlayerHarvestingDamageMultiplier",
+      1.0,
+    ),
+    dinoHarvestingDamageMultiplier: getVal(
+      [ss, gm],
+      "DinoHarvestingDamageMultiplier",
+      1.0,
+    ),
+    wildDinoCharacterFoodDrainMultiplier: getVal(
+      [ss, gm],
+      "WildDinoCharacterFoodDrainMultiplier",
+      1.0,
+    ),
+    globalSpoilingTimeMultiplier: getVal(
+      [ss, gm],
+      "GlobalSpoilingTimeMultiplier",
+      1.0,
+    ),
+    cropGrowthSpeedMultiplier: getVal(
+      [ss, gm],
+      "CropGrowthSpeedMultiplier",
+      1.0,
+    ),
+    cropDecaySpeedMultiplier: getVal([ss, gm], "CropDecaySpeedMultiplier", 1.0),
+    supplyCrateLootQualityMultiplier: getVal(
+      [ss, gm],
+      "SupplyCrateLootQualityMultiplier",
+      1.0,
+    ),
+    fishingLootQualityMultiplier: getVal(
+      [ss, gm],
+      "FishingLootQualityMultiplier",
+      1.0,
+    ),
 
     npcReplacements,
     engramEntries,
