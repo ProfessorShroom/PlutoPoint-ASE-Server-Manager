@@ -431,6 +431,72 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
       "FishingLootQualityMultiplier",
       1.0,
     ),
+    maxTribeLogs: getVal([ss, gm], "MaxTribeLogs", ""),
+    useCorpseLifeSpanMultiplier: getVal(
+      [ss, gm],
+      "UseCorpseLifeSpanMultiplier",
+      "",
+    ),
+    globalPoweredBatteryDurabilityDecreasePerSecond: getVal(
+      [ss, gm],
+      "GlobalPoweredBatteryDurabilityDecreasePerSecond",
+      "",
+    ),
+    resourceNoReplenishRadiusPlayers: getVal(
+      [ss, gm],
+      "ResourceNoReplenishRadiusPlayers",
+      0,
+    ),
+    resourceNoReplenishRadiusStructures: getVal(
+      [ss, gm],
+      "ResourceNoReplenishRadiusStructures",
+      0,
+    ),
+    globalItemDecompositionTimeMultiplier: getVal(
+      [ss, gm],
+      "GlobalItemDecompositionTimeMultiplier",
+      1.0,
+    ),
+    globalCorpseDecompositionTimeMultiplier: getVal(
+      [ss, gm],
+      "GlobalCorpseDecompositionTimeMultiplier",
+      1.0,
+    ),
+    overrideMaxExperiencePointsPlayer: getVal(
+      [gm, ss],
+      "OverrideMaxExperiencePointsPlayer",
+      "",
+    ),
+    overrideMaxExperiencePointsDino: getVal(
+      [gm, ss],
+      "OverrideMaxExperiencePointsDino",
+      "",
+    ),
+    tamedDinoCharacterFoodDrainMultiplier: getVal(
+      [ss, gm],
+      "TamedDinoCharacterFoodDrainMultiplier",
+      1.0,
+    ),
+    tamedDinoTorporDrainMultiplier: getVal(
+      [ss, gm],
+      "TamedDinoTorporDrainMultiplier",
+      1.0,
+    ),
+    wildDinoTorporDrainMultiplier: getVal(
+      [ss, gm],
+      "WildDinoTorporDrainMultiplier",
+      1.0,
+    ),
+    passiveTameIntervalMultiplier: getVal(
+      [ss, gm],
+      "PassiveTameIntervalMultiplier",
+      1.0,
+    ),
+    baseTemperatureMultiplier: getVal(
+      [ss, gm],
+      "BaseTemperatureMultiplier",
+      1.0,
+    ),
     npcReplacements,
     engramEntries,
     craftingCosts,
@@ -536,6 +602,16 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
     cropDecaySpeedMultiplier: "CropDecaySpeedMultiplier",
     supplyCrateLootQualityMultiplier: "SupplyCrateLootQualityMultiplier",
     fishingLootQualityMultiplier: "FishingLootQualityMultiplier",
+    maxTribeLogs: "MaxTribeLogs",
+    useCorpseLifeSpanMultiplier: "UseCorpseLifeSpanMultiplier",
+    globalPoweredBatteryDurabilityDecreasePerSecond:
+      "GlobalPoweredBatteryDurabilityDecreasePerSecond",
+    resourceNoReplenishRadiusPlayers: "ResourceNoReplenishRadiusPlayers",
+    resourceNoReplenishRadiusStructures: "ResourceNoReplenishRadiusStructures",
+    globalItemDecompositionTimeMultiplier:
+      "GlobalItemDecompositionTimeMultiplier",
+    globalCorpseDecompositionTimeMultiplier:
+      "GlobalCorpseDecompositionTimeMultiplier",
   };
 
   const gameMultipliers = {
@@ -553,6 +629,14 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
     babyCuddleIntervalMultiplier: "BabyCuddleIntervalMultiplier",
     wildDinoCharacterFoodDrainMultiplier:
       "WildDinoCharacterFoodDrainMultiplier",
+    tamedDinoCharacterFoodDrainMultiplier:
+      "TamedDinoCharacterFoodDrainMultiplier",
+    tamedDinoTorporDrainMultiplier: "TamedDinoTorporDrainMultiplier",
+    wildDinoTorporDrainMultiplier: "WildDinoTorporDrainMultiplier",
+    passiveTameIntervalMultiplier: "PassiveTameIntervalMultiplier",
+    overrideMaxExperiencePointsPlayer: "OverrideMaxExperiencePointsPlayer",
+    overrideMaxExperiencePointsDino: "OverrideMaxExperiencePointsDino",
+    baseTemperatureMultiplier: "BaseTemperatureMultiplier",
   };
 
   for (const [frontendKey, iniKey] of Object.entries(gusMultipliers)) {
@@ -579,6 +663,7 @@ router.post("/settings/:serverId", isAuthenticated, isAdmin, (req, res) => {
     allowHitMarkers: "AllowHitMarkers",
     allowAnyoneBabyImprintCuddle: "AllowAnyoneBabyImprintCuddle",
     overrideStructurePlatformPrevention: "OverrideStructurePlatformPrevention",
+    randomSupplyCratePoints: "RandomSupplyCratePoints",
   };
 
   for (const [frontendKey, iniKey] of Object.entries(boolMap)) {
