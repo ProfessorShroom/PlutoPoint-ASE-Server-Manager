@@ -250,17 +250,15 @@ router.get("/settings/:serverId", isAuthenticated, (req, res) => {
     getSection(gusConfig, "ModInstaller") ||
     {};
 
-  let modIdsArray = [];
-  if (modInstaller.ModIDS) {
-    modIdsArray = Array.isArray(modInstaller.ModIDS)
+  let modIdsStr = "";
+  if (ss.ActiveMods) {
+    modIdsStr = ss.ActiveMods;
+  } else if (modInstaller.ModIDS) {
+    const modIdsArray = Array.isArray(modInstaller.ModIDS)
       ? modInstaller.ModIDS
       : [modInstaller.ModIDS];
-  } else if (ss.ActiveMods) {
-    modIdsArray = ss.ActiveMods.split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
+    modIdsStr = modIdsArray.join(", ");
   }
-  const modIdsStr = modIdsArray.join(", ");
   const isTrue = (val) => val === "True" || val === true;
 
   let npcReplacements = [];
