@@ -79,6 +79,42 @@ test("syncServerMods resolves workshop content from the current home directory",
   );
 });
 
+test("syncServerMods resolves workshop content from the Steam client layout", () => {
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "mods-steam-client-test-"),
+  );
+  const serverPath = path.join(tempRoot, "server-steam-client");
+  const workshopRoot = path.join(
+    tempRoot,
+    ".steam",
+    "steam",
+    "steamapps",
+    "workshop",
+    "content",
+    "346110",
+  );
+  const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
+
+  fs.mkdirSync(targetModsDir, { recursive: true });
+  fs.mkdirSync(path.join(workshopRoot, "22222"), { recursive: true });
+  fs.writeFileSync(path.join(workshopRoot, "22222", "mod.info"), "hello");
+
+  const originalHome = process.env.HOME;
+  process.env.HOME = tempRoot;
+
+  try {
+    syncServerMods(serverPath, "server-steam-client");
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+  }
+
+  assert.ok(
+    fs.existsSync(path.join(targetModsDir, "22222")),
+    "expected workshop mods to be copied from the Steam client layout",
+  );
+});
+
 test("syncServerModsWithRetries copies mods that appear after the first attempt", async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-retry-test-"));
   const serverPath = path.join(tempRoot, "server-three");

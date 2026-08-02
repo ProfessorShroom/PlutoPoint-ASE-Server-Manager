@@ -25,40 +25,26 @@ function resolveWorkshopDir(workshopDir) {
     "/root",
     "/home/appuser",
   ];
+  const workshopRootSuffixes = [
+    path.join("Steam", "steamapps", "workshop", "content", "346110"),
+    path.join("steamapps", "workshop", "content", "346110"),
+    path.join(".steam", "steam", "steamapps", "workshop", "content", "346110"),
+  ];
 
-  envRoots.forEach((root) => {
+  const addRootCandidates = (root) => {
     if (!root) return;
-    addCandidate(
-      path.join(root, "Steam", "steamapps", "workshop", "content", "346110"),
-    );
-    addCandidate(path.join(root, "steamapps", "workshop", "content", "346110"));
-  });
+    workshopRootSuffixes.forEach((suffix) => {
+      addCandidate(path.join(root, suffix));
+    });
+  };
+
+  envRoots.forEach(addRootCandidates);
 
   if (fs.existsSync("/home")) {
     try {
       for (const entry of fs.readdirSync("/home", { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
-        addCandidate(
-          path.join(
-            "/home",
-            entry.name,
-            "Steam",
-            "steamapps",
-            "workshop",
-            "content",
-            "346110",
-          ),
-        );
-        addCandidate(
-          path.join(
-            "/home",
-            entry.name,
-            "steamapps",
-            "workshop",
-            "content",
-            "346110",
-          ),
-        );
+        addRootCandidates(path.join("/home", entry.name));
       }
     } catch (err) {
       // Ignore home-directory scan failures and fall back to the explicit candidates.

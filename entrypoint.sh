@@ -61,10 +61,27 @@ if [ -d "$USER_HOME/Steam" ]; then
 fi
 
 # Always ensure the Steam workshop content root exists on startup.
-WORKSHOP_DIR="$USER_HOME/Steam/steamapps/workshop/content/346110"
+WORKSHOP_DIR=""
+for candidate in \
+    "$USER_HOME/.steam/steam/steamapps/workshop/content/346110" \
+    "$USER_HOME/Steam/steamapps/workshop/content/346110" \
+    "$USER_HOME/steamapps/workshop/content/346110" \
+    "/tmp/steamcmd-home/.steam/steam/steamapps/workshop/content/346110" \
+    "/tmp/steamcmd-home/Steam/steamapps/workshop/content/346110" \
+    "/tmp/steamcmd-home/steamapps/workshop/content/346110"; do
+    if [ -d "$candidate" ]; then
+        WORKSHOP_DIR="$candidate"
+        break
+    fi
+done
+
+if [ -z "$WORKSHOP_DIR" ]; then
+    WORKSHOP_DIR="$USER_HOME/.steam/steam/steamapps/workshop/content/346110"
+fi
+
 echo "[entrypoint] workshop root: $WORKSHOP_DIR"
 mkdir -p "$WORKSHOP_DIR"
-chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
+chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam" "$USER_HOME/.steam"
 
 echo "[entrypoint] runtime user home: $USER_HOME"
 
