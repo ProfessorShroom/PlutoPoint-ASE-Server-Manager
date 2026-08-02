@@ -30,11 +30,12 @@ RUN dpkg --add-architecture i386 \
  && apt-get install -y --no-install-recommends software-properties-common \
  && add-apt-repository -y multiverse \
  && apt-get update \
+ && echo "steam steam/question select I AGREE" | debconf-set-selections \
+ && echo "steam steam/license note ''" | debconf-set-selections \
  && apt-get install -y --no-install-recommends steamcmd \
  && rm -rf /var/lib/apt/lists/* \
  && ln -sf /usr/games/steamcmd /usr/local/bin/steamcmd \
- && chmod +x /usr/games/steamcmd \
- && /usr/games/steamcmd +quit
+ && chmod +x /usr/games/steamcmd
 
 # Install Node.js (v20 LTS) and keep image small
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
