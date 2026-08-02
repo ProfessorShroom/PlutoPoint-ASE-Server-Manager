@@ -2,8 +2,14 @@ const fs = require("fs");
 const path = require("path");
 
 function linkServerMods(serverPath) {
+  const absServerPath = path.resolve(serverPath);
   const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
-  const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
+  const targetModsDir = path.join(
+    absServerPath,
+    "ShooterGame",
+    "Content",
+    "Mods",
+  );
 
   console.log(
     `[Mods] Forcing symlinks from ${workshopDir} to ${targetModsDir}`,
@@ -36,15 +42,10 @@ function linkServerMods(serverPath) {
     const sourceFile = path.join(workshopDir, `${modId}.mod`);
     const targetFile = path.join(targetModsDir, `${modId}.mod`);
 
-    // Force remove existing target folder/symlink if it exists
     try {
       if (fs.existsSync(targetFolder)) {
         fs.rmSync(targetFolder, { recursive: true, force: true });
       }
-    } catch (e) {}
-
-    // Create folder symlink
-    try {
       fs.symlinkSync(sourceFolder, targetFolder, "dir");
       console.log(`[Mods] Successfully symlinked mod folder: ${modId}`);
     } catch (err) {
@@ -54,7 +55,6 @@ function linkServerMods(serverPath) {
       );
     }
 
-    // Force remove and create .mod file symlink if present
     if (fs.existsSync(sourceFile)) {
       try {
         if (fs.existsSync(targetFile)) {
