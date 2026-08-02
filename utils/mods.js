@@ -63,13 +63,10 @@ function resolveWorkshopDir(workshopDir) {
     addCandidate(
       path.join(base, "Steam", "steamapps", "workshop", "content", "346110"),
     );
+    addCandidate(path.join(base, "steamapps", "workshop", "content", "346110"));
   }
 
-  return (
-    candidates.find((candidate) => fs.existsSync(candidate)) ||
-    candidates[0] ||
-    null
-  );
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
 function linkServerMods(serverPath, serverName = "server", workshopDir) {
