@@ -1,11 +1,14 @@
 const fs = require("fs");
 const path = require("path");
 
-function linkServerMods(serverPath) {
+function linkServerMods(
+  serverPath,
+  serverName = "server",
+  workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110",
+) {
   if (!serverPath) return;
 
   const absServerPath = path.resolve(serverPath);
-  const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(
     absServerPath,
     "ShooterGame",
@@ -14,7 +17,7 @@ function linkServerMods(serverPath) {
   );
 
   console.log(
-    `[Mods] Copying workshop mods for server: ${path.basename(absServerPath)}`,
+    `[Mods] Synchronizing workshop mods for server: ${serverName} (${path.basename(absServerPath)})`,
   );
 
   if (!fs.existsSync(workshopDir)) {
@@ -50,23 +53,29 @@ function linkServerMods(serverPath) {
     const targetFile = path.join(targetModsDir, `${modId}.mod`);
 
     try {
-      // Recursively copy the mod folder instead of symlinking
       if (fs.existsSync(sourceFolder)) {
-        fs.cpSync(sourceFolder, targetFolder, { recursive: true, force: true });
-        console.log(
-          `[Mods] Copied mod folder ${modId} to ${path.basename(absServerPath)}`,
-        );
+        if (
+          fs.existsSync(targetFolder) ||
+          fs.lstatSync(targetFolder, { throwIfNoEntry: false })
+        ) {
+          fs.rmSync(targetFolder, { recursive: true, force: true });
+        }
+        fs.symlinkSync(sourceFolder, targetFolder, "dir");
+        console.log(`[Mods] Linked mod folder ${modId} into ${serverName}`);
       }
 
-      // Copy the .mod file if it exists
       if (fs.existsSync(sourceFile)) {
-        fs.copyFileSync(sourceFile, targetFile);
-        console.log(
-          `[Mods] Copied mod file ${modId}.mod to ${path.basename(absServerPath)}`,
-        );
+        if (
+          fs.existsSync(targetFile) ||
+          fs.lstatSync(targetFile, { throwIfNoEntry: false })
+        ) {
+          fs.rmSync(targetFile, { recursive: true, force: true });
+        }
+        fs.symlinkSync(sourceFile, targetFile, "file");
+        console.log(`[Mods] Linked mod file ${modId}.mod into ${serverName}`);
       }
     } catch (err) {
-      console.error(`[Mods] Failed to copy mod ${modId}:`, err.message);
+      console.error(`[Mods] Failed to link mod ${modId}:`, err.message);
     }
   }
 }
