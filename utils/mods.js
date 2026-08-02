@@ -3,7 +3,6 @@ const path = require("path");
 const ini = require("ini");
 
 function linkServerMods(serverPath) {
-  // Use direct path as discussed
   const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
@@ -30,8 +29,6 @@ function linkServerMods(serverPath) {
     if (fs.existsSync(gusPath)) {
       const gusContent = fs.readFileSync(gusPath, "utf-8");
       const gusParsed = ini.parse(gusContent);
-
-      // Look for ActiveMods under ServerSettings
       const activeModsStr =
         gusParsed.ServerSettings?.ActiveMods ||
         gusParsed["ServerSettings"]?.activemods;
@@ -65,10 +62,7 @@ function linkServerMods(serverPath) {
 
     try {
       if (fs.existsSync(sourceFolder)) {
-        if (
-          fs.existsSync(targetFolder) ||
-          fs.lstatSync(targetFolder, { throwIfMissing: false })
-        ) {
+        if (fs.existsSync(targetFolder)) {
           fs.rmSync(targetFolder, { recursive: true, force: true });
         }
         fs.symlinkSync(sourceFolder, targetFolder, "dir");
