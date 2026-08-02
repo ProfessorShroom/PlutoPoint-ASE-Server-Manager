@@ -159,8 +159,9 @@ router.post(
       return res.status(400).json({ error: "Server binary files not found." });
 
     try {
+      const absServerPath = path.resolve(server.path);
       const steamCmdTargetDir = path.join(
-        server.path,
+        absServerPath,
         "Engine",
         "Binaries",
         "ThirdParty",
@@ -170,18 +171,17 @@ router.post(
 
       fs.mkdirSync(steamCmdTargetDir, { recursive: true });
 
-      if (
-        fs.existsSync(linuxSymlink) ||
-        fs.lstatSync(linuxSymlink).catch(() => false)
-      ) {
+      try {
         fs.rmSync(linuxSymlink, { recursive: true, force: true });
-      }
+      } catch (e) {}
 
       fs.symlinkSync("/opt/steamcmd", linuxSymlink);
+      console.log(
+        `[INFO] Successfully symlinked /opt/steamcmd to ${linuxSymlink}`,
+      );
     } catch (err) {
       console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
     }
-    // =========================================================================
 
     let mapName = "TheIsland";
     let sessionName = server.name;
@@ -313,8 +313,9 @@ router.post(
       if (!fs.existsSync(shooterGameBin)) return;
 
       try {
+        const absServerPath = path.resolve(server.path);
         const steamCmdTargetDir = path.join(
-          server.path,
+          absServerPath,
           "Engine",
           "Binaries",
           "ThirdParty",
@@ -324,18 +325,17 @@ router.post(
 
         fs.mkdirSync(steamCmdTargetDir, { recursive: true });
 
-        if (
-          fs.existsSync(linuxSymlink) ||
-          fs.lstatSync(linuxSymlink).catch(() => false)
-        ) {
+        try {
           fs.rmSync(linuxSymlink, { recursive: true, force: true });
-        }
+        } catch (e) {}
 
         fs.symlinkSync("/opt/steamcmd", linuxSymlink);
+        console.log(
+          `[INFO] Successfully symlinked /opt/steamcmd to ${linuxSymlink}`,
+        );
       } catch (err) {
         console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
       }
-      // =========================================================================
 
       let mapName = "TheIsland";
       let sessionName = server.name;
