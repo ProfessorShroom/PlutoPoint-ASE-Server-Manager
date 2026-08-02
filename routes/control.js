@@ -158,6 +158,31 @@ router.post(
     if (!fs.existsSync(shooterGameBin))
       return res.status(400).json({ error: "Server binary files not found." });
 
+    try {
+      const steamCmdTargetDir = path.join(
+        server.path,
+        "Engine",
+        "Binaries",
+        "ThirdParty",
+        "SteamCMD",
+      );
+      const linuxSymlink = path.join(steamCmdTargetDir, "Linux");
+
+      fs.mkdirSync(steamCmdTargetDir, { recursive: true });
+
+      if (
+        fs.existsSync(linuxSymlink) ||
+        fs.lstatSync(linuxSymlink).catch(() => false)
+      ) {
+        fs.rmSync(linuxSymlink, { recursive: true, force: true });
+      }
+
+      fs.symlinkSync("/opt/steamcmd", linuxSymlink);
+    } catch (err) {
+      console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
+    }
+    // =========================================================================
+
     let mapName = "TheIsland";
     let sessionName = server.name;
     const gusPath = path.join(
@@ -286,6 +311,31 @@ router.post(
         "ShooterGameServer",
       );
       if (!fs.existsSync(shooterGameBin)) return;
+
+      try {
+        const steamCmdTargetDir = path.join(
+          server.path,
+          "Engine",
+          "Binaries",
+          "ThirdParty",
+          "SteamCMD",
+        );
+        const linuxSymlink = path.join(steamCmdTargetDir, "Linux");
+
+        fs.mkdirSync(steamCmdTargetDir, { recursive: true });
+
+        if (
+          fs.existsSync(linuxSymlink) ||
+          fs.lstatSync(linuxSymlink).catch(() => false)
+        ) {
+          fs.rmSync(linuxSymlink, { recursive: true, force: true });
+        }
+
+        fs.symlinkSync("/opt/steamcmd", linuxSymlink);
+      } catch (err) {
+        console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
+      }
+      // =========================================================================
 
       let mapName = "TheIsland";
       let sessionName = server.name;
