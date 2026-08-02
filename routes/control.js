@@ -17,8 +17,8 @@ const { syncServerModsWithRetries } = require("../utils/mods");
 async function syncServerMods(server, logFn = console.log) {
   try {
     await syncServerModsWithRetries(server.path, server.name, undefined, {
-      attempts: 4,
-      retryDelayMs: 3000,
+      attempts: 10,
+      retryDelayMs: 30000,
     });
     logFn(`[INFO] Successfully synchronized workshop mods for ${server.name}`);
   } catch (err) {
@@ -109,19 +109,42 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
     res.end();
   });
 
-  steamcmd.stdout.on("data", (data) => sendLog(data.toString()));
-  steamcmd.stderr.on("data", (data) => sendLog(`ERROR: ${data.toString()}`));
-  steamcmd.on("close", (code) => {
+  let steamCmdFinished = false;
+  let sawUnloadingSteamApi = false;
+
+  const finalizeSteamCmd = (code) => {
+    if (steamCmdFinished) return;
+    steamCmdFinished = true;
     sendLog(`\nSteamCMD process exited with code ${code}.`);
 
-    // Link mods right after installation finishes successfully
     if (code === 0) {
       syncServerMods(server, (message) => sendLog(`${message}\n`));
-      sendLog(`[INFO] Automatically checked and linked server mods.\n`);
+      sendLog(`[INFO] Automatically checked and synced server mods.\n`);
     }
 
     res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
     res.end();
+  };
+
+  const handleSteamOutput = (data) => {
+    const text = data.toString();
+    sendLog(text);
+
+    if (/Unloading SteamAPI/i.test(text)) {
+      sawUnloadingSteamApi = true;
+    }
+  };
+
+  steamcmd.stdout.on("data", handleSteamOutput);
+  steamcmd.stderr.on("data", (data) => sendLog(`ERROR: ${data.toString()}`));
+
+  steamcmd.on("close", (code) => {
+    if (sawUnloadingSteamApi || code !== 0) {
+      finalizeSteamCmd(code);
+      return;
+    }
+
+    setTimeout(() => finalizeSteamCmd(code), 1000);
   });
 });
 
@@ -178,8 +201,10 @@ router.post(
     if (!fs.existsSync(shooterGameBin))
       return res.status(400).json({ error: "Server binary files not found." });
 
-    // Link mods dynamically before starting the server process
-    syncServerMods(server, (message) => console.log(message));
+    // Sync workshop mods only after the server has had a chance to finish downloading them.
+    setTimeout(() => {
+      void syncServerMods(server, (message) => console.log(message));
+    }, 30000);
 
     try {
       const absServerPath = path.resolve(server.path);
@@ -335,8 +360,10 @@ router.post(
       );
       if (!fs.existsSync(shooterGameBin)) return;
 
-      // Link mods dynamically before restarting server binary
-      syncServerMods(server, (message) => console.log(message));
+      // Sync workshop mods only after the server has had a chance to finish downloading them.
+      setTimeout(() => {
+        void syncServerMods(server, (message) => console.log(message));
+      }, 30000);
 
       try {
         const absServerPath = path.resolve(server.path);
