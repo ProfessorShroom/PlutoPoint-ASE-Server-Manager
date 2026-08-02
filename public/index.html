@@ -904,16 +904,6 @@
                   />
                 </div>
                 <div>
-                  <label class="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="cfg-randomSupplyCratePoints"
-                      class="rounded bg-slate-900 border-slate-700 text-cyan-600"
-                    />
-                    <span class="text-sm">Random Supply Crate Points</span>
-                  </label>
-                </div>
-                <div>
                   <label class="block text-sm font-medium mb-1"
                     >Structure Damage Repair Cooldown</label
                   >
@@ -1210,17 +1200,25 @@
                     >Override Structure Platform Prevention</span
                   >
                 </label>
+                <label class="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="cfg-randomSupplyCratePoints"
+                    class="rounded bg-slate-900 border-slate-700 text-cyan-600"
+                  />
+                  <span class="text-sm">Random Supply Crate Points</span>
+                </label>
               </div>
             </div>
 
             <!-- NPC Replacements (Dino Spawn Remaps) -->
             <div class="border-t border-slate-700 pt-4">
               <h3 class="text-md font-semibold text-cyan-400 mb-2">
-                NPC Replacements (Dino Spawn Swapping / Removal)
+                NPC Replacements (Dino Spawn Replacements / Removal)
               </h3>
               <p class="text-xs text-slate-400 mb-3">
-                Select '-- No Spawn / Despawn --' to completely prevent the
-                dinosaur from spawning.
+                Select '-- No Spawn --' to completely prevent the dinosaur from
+                spawning.
               </p>
               <div id="npc-replacements-container" class="space-y-2 mb-3">
                 <!-- Populated dynamically -->
