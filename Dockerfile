@@ -25,10 +25,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Install SteamCMD via apt using the Ubuntu multiverse repository and i386 support.
-RUN dpkg --add-architecture i386 \
- && apt-get update \
- && apt-get install -y --no-install-recommends software-properties-common \
- && add-apt-repository -y multiverse \
+# Pre-accept the Steam License Agreement so the non-interactive install does not fail.
+RUN echo steam steam/question select "I AGREE" | debconf-set-selections \
+ && echo steam steam/license note '' | debconf-set-selections \
  && apt-get update \
  && apt-get install -y --no-install-recommends steamcmd \
  && rm -rf /var/lib/apt/lists/* \
