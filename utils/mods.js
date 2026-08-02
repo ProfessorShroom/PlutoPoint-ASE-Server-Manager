@@ -2,93 +2,51 @@ const fs = require("fs");
 const path = require("path");
 const ini = require("ini");
 
-// Helper function to wait until the directory exists or timeout
-async function waitForDirectory(dirPath, timeoutMs = 30000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (fs.existsSync(dirPath)) return true;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-  return false;
-}
-
-async function linkServerMods(serverPath) {
+function linkServerMods(serverPath) {
   const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
-  console.log(
-    `[Mods] Waiting for workshop directory to appear: ${workshopDir}`,
-  );
-
-  // Wait up to 30 seconds for SteamCMD to populate the folder on startup
-  const exists = await waitForDirectory(workshopDir, 30000);
-  if (!exists) {
-    console.log(`[Mods] Workshop directory did not appear within timeout.`);
+  console.log(`[Mods] Checking workshop directory: ${workshopDir}`);
+  if (!fs.existsSync(workshopDir)) {
+    console.log(`[Mods] Workshop directory not found at ${workshopDir}`);
     return;
   }
 
-  console.log(`[Mods] Workshop directory found! Proceeding with linking.`);
   fs.mkdirSync(targetModsDir, { recursive: true });
 
-  const configDir = path.join(
-    serverPath,
-    "ShooterGame",
-    "Saved",
-    "Config",
-    "LinuxServer",
-  );
-  const gusPath = path.join(configDir, "GameUserSettings.ini");
-  const gamePath = path.join(configDir, "Game.ini");
-
-  let modIds = [];
+  // Read all subfolders/files present in the workshop content directory
+  let entries = [];
   try {
-    if (fs.existsSync(gusPath)) {
-      const gusContent = fs.readFileSync(gusPath, "utf-8");
-      const gusParsed = ini.parse(gusContent);
-      const activeModsStr =
-        gusParsed.ServerSettings?.ActiveMods ||
-        gusParsed["ServerSettings"]?.activemods;
-      if (activeModsStr) {
-        modIds = activeModsStr
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean);
-      }
-    }
-
-    if (modIds.length === 0 && fs.existsSync(gamePath)) {
-      const gameParsed = ini.parse(fs.readFileSync(gamePath, "utf-8"));
-      if (gameParsed.ModInstaller?.ModIDS) {
-        modIds = Array.isArray(gameParsed.ModInstaller.ModIDS)
-          ? gameParsed.ModInstaller.ModIDS
-          : [gameParsed.ModInstaller.ModIDS];
-      }
-    }
-  } catch (e) {
-    console.error("[Mods] ERROR parsing configs for mod linking:", e.message);
+    entries = fs.readdirSync(workshopDir, { withFileTypes: true });
+  } catch (err) {
+    console.error(`[Mods] Failed to read workshop directory:`, err.message);
+    return;
   }
 
-  console.log(`[Mods] Found active mod IDs to link:`, modIds);
+  // Filter out numeric mod IDs that are actually present on disk
+  const foundModIds = entries
+    .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
+    .map((entry) => entry.name);
 
-  for (const modId of modIds) {
+  console.log(`[Mods] Found mod folders on disk:`, foundModIds);
+
+  for (const modId of foundModIds) {
     const sourceFolder = path.join(workshopDir, modId);
     const targetFolder = path.join(targetModsDir, modId);
     const sourceFile = path.join(workshopDir, `${modId}.mod`);
     const targetFile = path.join(targetModsDir, `${modId}.mod`);
 
     try {
+      // 1. Link the mod directory
       if (fs.existsSync(sourceFolder)) {
         if (fs.existsSync(targetFolder)) {
           fs.rmSync(targetFolder, { recursive: true, force: true });
         }
         fs.symlinkSync(sourceFolder, targetFolder, "dir");
         console.log(`[Mods] Successfully linked mod folder: ${modId}`);
-      } else {
-        console.log(
-          `[Mods] Source folder for mod ${modId} not found in workshop cache.`,
-        );
       }
 
+      // 2. Link the corresponding .mod file if it exists
       if (fs.existsSync(sourceFile)) {
         if (fs.existsSync(targetFile)) {
           fs.rmSync(targetFile, { force: true });
