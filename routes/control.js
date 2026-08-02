@@ -3,7 +3,6 @@ const router = express.Router();
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
-const ini = require("ini");
 const {
   loadServers,
   saveServers,
@@ -13,6 +12,7 @@ const {
   serverLogs,
 } = require("../utils/helpers");
 const { syncServerModsWithRetries } = require("../utils/mods");
+const { buildStartupArgs } = require("../utils/server-launch");
 
 async function syncServerMods(server, logFn = console.log) {
   try {
@@ -231,43 +231,19 @@ router.post(
       console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
     }
 
-    let mapName = "TheIsland";
-    let sessionName = server.name;
-    const gusPath = path.join(
-      server.path,
-      "ShooterGame",
-      "Saved",
-      "Config",
-      "LinuxServer",
-      "GameUserSettings.ini",
-    );
-    try {
-      if (fs.existsSync(gusPath)) {
-        const parsed = ini.parse(fs.readFileSync(gusPath, "utf-8"));
-        if (parsed.ServerSettings?.ActiveMap)
-          mapName = parsed.ServerSettings.ActiveMap;
-        if (parsed.SessionSettings?.SessionName)
-          sessionName = parsed.SessionSettings.SessionName;
-        else if (parsed.ServerSettings?.SessionName)
-          sessionName = parsed.ServerSettings.SessionName;
-      }
-    } catch (e) {}
+    const { serverArgs } = buildStartupArgs(server.path, server.name);
 
-    const serverProcess = spawn(
-      shooterGameBin,
-      [
-        `${mapName}?listen?SessionName=${sessionName}?RCONEnabled=True?RCONPort=27020`,
-      ],
-      {
-        cwd: path.dirname(shooterGameBin),
-        detached: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    const serverProcess = spawn(shooterGameBin, serverArgs, {
+      cwd: path.dirname(shooterGameBin),
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
     serverLogs[server.id] = [
-      `[${new Date().toISOString()}] Starting server process...\n`,
-      `[INFO] Server process launched, waiting for ARK server startup...\n`,
+      `[${new Date().toISOString()}] Starting server process...
+`,
+      `[INFO] Server process launched, waiting for ARK server startup...
+`,
     ];
     serverProcess.stdout.on("data", (data) => {
       serverLogs[server.id].push(data.toString());
@@ -390,39 +366,13 @@ router.post(
         console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
       }
 
-      let mapName = "TheIsland";
-      let sessionName = server.name;
-      const gusPath = path.join(
-        server.path,
-        "ShooterGame",
-        "Saved",
-        "Config",
-        "LinuxServer",
-        "GameUserSettings.ini",
-      );
-      try {
-        if (fs.existsSync(gusPath)) {
-          const parsed = ini.parse(fs.readFileSync(gusPath, "utf-8"));
-          if (parsed.ServerSettings?.ActiveMap)
-            mapName = parsed.ServerSettings.ActiveMap;
-          if (parsed.SessionSettings?.SessionName)
-            sessionName = parsed.SessionSettings.SessionName;
-          else if (parsed.ServerSettings?.SessionName)
-            sessionName = parsed.ServerSettings.SessionName;
-        }
-      } catch (e) {}
+      const { serverArgs } = buildStartupArgs(server.path, server.name);
 
-      const serverProcess = spawn(
-        shooterGameBin,
-        [
-          `${mapName}?listen?SessionName=${sessionName}?RCONEnabled=True?RCONPort=27020`,
-        ],
-        {
-          cwd: path.dirname(shooterGameBin),
-          detached: true,
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
+      const serverProcess = spawn(shooterGameBin, serverArgs, {
+        cwd: path.dirname(shooterGameBin),
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
 
       serverProcess.stdout.on("data", (data) => {
         if (!serverLogs[server.id]) serverLogs[server.id] = [];
