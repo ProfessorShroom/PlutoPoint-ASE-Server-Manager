@@ -60,27 +60,34 @@ if [ -d "$USER_HOME/Steam" ]; then
     chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
 fi
 
-# Link workshop mods into any configured server locations if the workshop content exists.
-# This handles fresh installs where the server directories may not exist yet.
+# Always ensure the Steam workshop content root exists on startup.
 WORKSHOP_DIR="$USER_HOME/Steam/steamapps/workshop/content/346110"
+mkdir -p "$WORKSHOP_DIR"
+chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
 
-if [ -d "$WORKSHOP_DIR" ]; then
-    if [ -f /data/servers.json ]; then
-        python3 - <<'PY' >/tmp/servers_paths.txt
+# Link workshop mods into each configured server's mods directory when possible.
+# If no servers exist yet, create the expected fallback folder so the path is ready.
+mkdir -p /data
+if [ -f /data/servers.json ]; then
+    python3 - <<'PY' >/tmp/server_paths.txt
 import json, os
 p='/data/servers.json'
 if os.path.exists(p):
     with open(p) as fh:
         data=json.load(fh)
-    for s in data:
-        if s.get('path'):
-            print(s['path'])
+    for server in data:
+        path = server.get('path')
+        if path:
+            print(path)
 PY
-        while IFS= read -r SERVER_ROOT; do
-            [ -n "$SERVER_ROOT" ] || continue
-            SERVER_MODS_DIR="$SERVER_ROOT/ShooterGame/Content/Mods"
-            mkdir -p "$SERVER_MODS_DIR"
-            chown -R "$USER_ID:$GROUP_ID" "$SERVER_ROOT"
+
+    while IFS= read -r SERVER_ROOT; do
+        [ -n "$SERVER_ROOT" ] || continue
+        SERVER_MODS_DIR="$SERVER_ROOT/ShooterGame/Content/Mods"
+        mkdir -p "$SERVER_MODS_DIR"
+        chown -R "$USER_ID:$GROUP_ID" "$SERVER_ROOT"
+
+        if [ -d "$WORKSHOP_DIR" ]; then
             for mod_dir in "$WORKSHOP_DIR"/*; do
                 [ -d "$mod_dir" ] || continue
                 mod_name=$(basename "$mod_dir")
@@ -90,6 +97,7 @@ PY
                 fi
                 ln -s "$mod_dir" "$target_path"
             done
+
             for mod_file in "$WORKSHOP_DIR"/*.mod; do
                 [ -f "$mod_file" ] || continue
                 mod_file_name=$(basename "$mod_file")
@@ -99,9 +107,12 @@ PY
                 fi
                 ln -s "$mod_file" "$target_path"
             done
-        done < /tmp/servers_paths.txt
-        rm -f /tmp/servers_paths.txt
-    fi
+        fi
+    done < /tmp/server_paths.txt
+    rm -f /tmp/server_paths.txt
+else
+    mkdir -p /data/servers
+    mkdir -p /data/servers/ShooterGame/Content/Mods
 fi
 
 # Drop root privileges and execute the main container command using gosu
