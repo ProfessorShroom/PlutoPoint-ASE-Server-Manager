@@ -42,5 +42,18 @@ if [ -f /opt/steamcmd/steamcmd.sh ]; then chmod +x /opt/steamcmd/steamcmd.sh; fi
 if [ -f /opt/steamcmd/linux32/steamcmd ]; then chmod +x /opt/steamcmd/linux32/steamcmd; fi
 if [ -f /opt/steamcmd/linux64/steamcmd ]; then chmod +x /opt/steamcmd/linux64/steamcmd; fi
 
+# Fix ARK's SteamCMD dependency for automanagedmods
+echo "Creating SteamCMD symlink for ARK automanagedmods..."
+
+# 1. Create the path where ARK expects to find SteamCMD inside your /data volume
+mkdir -p /data/Engine/Binaries/ThirdParty/SteamCMD
+
+# 2. Symlink your actual SteamCMD installation (/opt/steamcmd) to ARK's 'Linux' directory
+ln -sf /opt/steamcmd /data/Engine/Binaries/ThirdParty/SteamCMD/Linux
+
+# 3. Ensure the newly created directory structure is owned by your dynamically created appuser
+chown -R "$USER_ID:$GROUP_ID" /data/Engine
+# --> NEW ADDITION ENDS HERE <--
+
 # 5. Drop root privileges and execute the main container command using gosu
 exec gosu "$USER_NAME" "$@"
