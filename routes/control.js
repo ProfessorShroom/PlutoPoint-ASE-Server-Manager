@@ -235,8 +235,11 @@ router.post(
       server.path,
       server.name,
     );
+    const formattedArgs = serverArgs
+      .map((arg) => (arg.includes(" ") ? JSON.stringify(arg) : arg))
+      .join(" ");
     console.log(
-      `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${JSON.stringify(serverArgs)}`,
+      `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${formattedArgs}`,
     );
     console.log(`[StartupDebug] Launch string=${launchArgs}`);
 
@@ -377,8 +380,11 @@ router.post(
         server.path,
         server.name,
       );
+      const formattedArgs = serverArgs
+        .map((arg) => (arg.includes(" ") ? JSON.stringify(arg) : arg))
+        .join(" ");
       console.log(
-        `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${JSON.stringify(serverArgs)}`,
+        `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${formattedArgs}`,
       );
       console.log(`[StartupDebug] Launch string=${launchArgs}`);
 

@@ -63,6 +63,7 @@ function buildStartupArgs(serverPath, serverName) {
   const launchArgs = modIds ? `${baseArgs}?GameModIds=${modIds}` : baseArgs;
   const serverArgs = [
     launchArgs,
+    "-automanagedmods",
     "-server",
     "-log",
     "-usecache",
@@ -103,8 +104,11 @@ function launchServerProcess(server, options = {}) {
     try {
       const { launchArgs, serverArgs, mapName, sessionName, modIds } =
         buildStartupArgs(server.path, server.name);
+      const formattedArgs = serverArgs
+        .map((arg) => (arg.includes(" ") ? JSON.stringify(arg) : arg))
+        .join(" ");
       logger(
-        `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${JSON.stringify(serverArgs)}`,
+        `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${formattedArgs}`,
       );
       logger(
         `[StartupDebug] Map=${mapName} Session=${sessionName} ModIds=${modIds || "<none>"}`,

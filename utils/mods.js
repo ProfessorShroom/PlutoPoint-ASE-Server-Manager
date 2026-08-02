@@ -14,12 +14,56 @@ function resolveWorkshopDir(workshopDir) {
 
   if (workshopDir) addCandidate(workshopDir);
 
-  addCandidate("/home/ubuntu/Steam/steamapps/workshop/content/346110");
-  addCandidate("/home/ubuntu/steamapps/workshop/content/346110");
-  addCandidate("/root/Steam/steamapps/workshop/content/346110");
-  addCandidate("/root/steamapps/workshop/content/346110");
-  addCandidate("/home/appuser/Steam/steamapps/workshop/content/346110");
-  addCandidate("/home/appuser/steamapps/workshop/content/346110");
+  const envRoots = [
+    process.env.HOME,
+    process.env.STEAMHOME,
+    process.env.USER_HOME,
+    process.env.STEAM_ROOT,
+    process.env.WORKSHOP_DIR,
+    "/tmp/steamcmd-home",
+    "/home/ubuntu",
+    "/root",
+    "/home/appuser",
+  ];
+
+  envRoots.forEach((root) => {
+    if (!root) return;
+    addCandidate(
+      path.join(root, "Steam", "steamapps", "workshop", "content", "346110"),
+    );
+    addCandidate(path.join(root, "steamapps", "workshop", "content", "346110"));
+  });
+
+  if (fs.existsSync("/home")) {
+    try {
+      for (const entry of fs.readdirSync("/home", { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        addCandidate(
+          path.join(
+            "/home",
+            entry.name,
+            "Steam",
+            "steamapps",
+            "workshop",
+            "content",
+            "346110",
+          ),
+        );
+        addCandidate(
+          path.join(
+            "/home",
+            entry.name,
+            "steamapps",
+            "workshop",
+            "content",
+            "346110",
+          ),
+        );
+      }
+    } catch (err) {
+      // Ignore home-directory scan failures and fall back to the explicit candidates.
+    }
+  }
 
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }

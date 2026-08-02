@@ -99,8 +99,7 @@ PY
                 [ -d "$mod_dir" ] || continue
                 mod_name=$(basename "$mod_dir")
                 target_path="$SERVER_MODS_DIR/$mod_name"
-                echo "[entrypoint] copying mod dir $mod_name -> $target_path"
-                rm -rf "$target_path"
+                echo "[entrypoint] ensuring mod dir $mod_name -> $target_path"
                 mkdir -p "$target_path"
                 cp -a "$mod_dir/." "$target_path/"
             done
@@ -109,20 +108,8 @@ PY
                 [ -f "$mod_file" ] || continue
                 mod_file_name=$(basename "$mod_file")
                 target_path="$SERVER_MODS_DIR/$mod_file_name"
-                echo "[entrypoint] copying mod file $mod_file_name -> $target_path"
-                rm -f "$target_path"
+                echo "[entrypoint] ensuring mod file $mod_file_name -> $target_path"
                 cp -a "$mod_file" "$target_path"
-            done
-
-            for existing_entry in "$SERVER_MODS_DIR"/*; do
-                [ -e "$existing_entry" ] || continue
-                entry_name=$(basename "$existing_entry")
-                if [[ "$entry_name" =~ ^[0-9]+(\.mod)?$ ]]; then
-                    if [ ! -e "$WORKSHOP_DIR/$entry_name" ] && [ ! -e "$WORKSHOP_DIR/${entry_name%.mod}.mod" ]; then
-                        echo "[entrypoint] removing stale mod entry $entry_name"
-                        rm -rf "$existing_entry"
-                    fi
-                fi
             done
         fi
     done < /tmp/server_paths.txt
