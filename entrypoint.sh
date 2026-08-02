@@ -37,12 +37,14 @@ if [ -f /opt/steamcmd/linux64/steamclient.so ]; then
     ln -sf /opt/steamcmd/linux64/steamclient.so "$USER_HOME/.steam/sdk64/steamclient.so"
 fi
 
-# Ensure permissions on home directory .steam path
-chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"
-
 # Fix ownership of your app/data directories so the new user can read/write them
 mkdir -p /data /backup /app
 chown -R "$USER_ID:$GROUP_ID" /data /backup /app
+
+# Ensure permissions on home directory .steam path only if it exists
+if [ -d "$USER_HOME/.steam" ]; then
+    chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"
+fi
 
 # Ensure SteamCMD is writable and executable for the runtime user
 if [ -d /opt/steamcmd ]; then
@@ -81,7 +83,12 @@ fi
 
 echo "[entrypoint] workshop root: $WORKSHOP_DIR"
 mkdir -p "$WORKSHOP_DIR"
-chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam" "$USER_HOME/.steam"
+if [ -d "$USER_HOME/Steam" ]; then
+    chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
+fi
+if [ -d "$USER_HOME/.steam" ]; then
+    chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"
+fi
 
 echo "[entrypoint] runtime user home: $USER_HOME"
 
