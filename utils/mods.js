@@ -2,26 +2,32 @@ const fs = require("fs");
 const path = require("path");
 const ini = require("ini");
 
-function linkServerMods(serverPath) {
+// Helper function to wait until the directory exists or timeout
+async function waitForDirectory(dirPath, timeoutMs = 30000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (fs.existsSync(dirPath)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return false;
+}
+
+async function linkServerMods(serverPath) {
   const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
   console.log(
-    `[Mods] Running as user:`,
-    process.getuid ? process.getuid() : "unknown",
+    `[Mods] Waiting for workshop directory to appear: ${workshopDir}`,
   );
-  console.log(`[Mods] Checking workshop directory: ${workshopDir}`);
 
-  try {
-    const stats = fs.statSync(workshopDir);
-    console.log(
-      `[Mods] Directory exists! Is directory? ${stats.isDirectory()}`,
-    );
-  } catch (err) {
-    console.error(`[Mods] Stat sync failed on workshopDir:`, err.message);
+  // Wait up to 30 seconds for SteamCMD to populate the folder on startup
+  const exists = await waitForDirectory(workshopDir, 30000);
+  if (!exists) {
+    console.log(`[Mods] Workshop directory did not appear within timeout.`);
     return;
   }
 
+  console.log(`[Mods] Workshop directory found! Proceeding with linking.`);
   fs.mkdirSync(targetModsDir, { recursive: true });
 
   const configDir = path.join(
