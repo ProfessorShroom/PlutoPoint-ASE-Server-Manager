@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 
 function linkServerMods(serverPath) {
+  if (!serverPath) return;
+
   const absServerPath = path.resolve(serverPath);
   const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(
@@ -12,8 +14,13 @@ function linkServerMods(serverPath) {
   );
 
   console.log(
-    `[Mods] Forcing symlinks from ${workshopDir} to ${targetModsDir}`,
+    `[Mods] Copying workshop mods for server: ${path.basename(absServerPath)}`,
   );
+
+  if (!fs.existsSync(workshopDir)) {
+    console.log(`[Mods] Workshop directory not found at ${workshopDir}`);
+    return;
+  }
 
   try {
     fs.mkdirSync(targetModsDir, { recursive: true });
@@ -43,31 +50,23 @@ function linkServerMods(serverPath) {
     const targetFile = path.join(targetModsDir, `${modId}.mod`);
 
     try {
-      if (fs.existsSync(targetFolder)) {
-        fs.rmSync(targetFolder, { recursive: true, force: true });
-      }
-      fs.symlinkSync(sourceFolder, targetFolder, "dir");
-      console.log(`[Mods] Successfully symlinked mod folder: ${modId}`);
-    } catch (err) {
-      console.error(
-        `[Mods] Failed to symlink mod folder ${modId}:`,
-        err.message,
-      );
-    }
-
-    if (fs.existsSync(sourceFile)) {
-      try {
-        if (fs.existsSync(targetFile)) {
-          fs.rmSync(targetFile, { force: true });
-        }
-        fs.symlinkSync(sourceFile, targetFile, "file");
-        console.log(`[Mods] Successfully symlinked mod file: ${modId}.mod`);
-      } catch (err) {
-        console.error(
-          `[Mods] Failed to symlink mod file ${modId}.mod:`,
-          err.message,
+      // Recursively copy the mod folder instead of symlinking
+      if (fs.existsSync(sourceFolder)) {
+        fs.cpSync(sourceFolder, targetFolder, { recursive: true, force: true });
+        console.log(
+          `[Mods] Copied mod folder ${modId} to ${path.basename(absServerPath)}`,
         );
       }
+
+      // Copy the .mod file if it exists
+      if (fs.existsSync(sourceFile)) {
+        fs.copyFileSync(sourceFile, targetFile);
+        console.log(
+          `[Mods] Copied mod file ${modId}.mod to ${path.basename(absServerPath)}`,
+        );
+      }
+    } catch (err) {
+      console.error(`[Mods] Failed to copy mod ${modId}:`, err.message);
     }
   }
 }
