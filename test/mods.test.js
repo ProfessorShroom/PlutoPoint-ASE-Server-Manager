@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { syncServerMods } = require("../utils/mods");
+const { syncServerMods, getConfiguredModIds } = require("../utils/mods");
 
 test("syncServerMods creates server-side mod copies from workshop content", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-test-"));
@@ -41,6 +41,26 @@ test("syncServerMods creates server-side mod copies from workshop content", () =
     fs.existsSync(linkedModFile),
     "expected .mod file to be copied into the server mods folder",
   );
+});
+
+test("getConfiguredModIds reads mod IDs from the ARK config", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-config-test-"));
+  const serverPath = path.join(tempRoot, "server-config");
+  const configDir = path.join(
+    serverPath,
+    "ShooterGame",
+    "Saved",
+    "Config",
+    "LinuxServer",
+  );
+
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(configDir, "GameUserSettings.ini"),
+    "[ServerSettings]\nActiveMods=11111,22222\n",
+  );
+
+  assert.equal(getConfiguredModIds(serverPath), "11111,22222");
 });
 
 test("syncServerMods resolves workshop content from the current home directory", () => {

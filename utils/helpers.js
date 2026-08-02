@@ -1,15 +1,36 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { exec } = require("child_process");
 const crypto = require("crypto");
 
-const DATA_DIR = process.env.DATA_DIR || "/data";
+function resolveWriteableDir(defaultDir, fallbackDir) {
+  try {
+    if (!fs.existsSync(defaultDir))
+      fs.mkdirSync(defaultDir, { recursive: true });
+    if (fs.statSync(defaultDir).isDirectory()) {
+      fs.accessSync(defaultDir, fs.constants.W_OK);
+      return defaultDir;
+    }
+  } catch (error) {
+    // Fall back to a user-writable directory when the default path is not accessible.
+  }
+
+  if (!fs.existsSync(fallbackDir))
+    fs.mkdirSync(fallbackDir, { recursive: true });
+  return fallbackDir;
+}
+
+const DATA_DIR = resolveWriteableDir(
+  process.env.DATA_DIR || "/data",
+  path.join(os.homedir(), ".plutopoint-ase-server-manager"),
+);
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const SERVERS_FILE = path.join(DATA_DIR, "servers.json");
-const BACKUP_DIR = process.env.BACKUP_DIR || "/backup";
-
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+const BACKUP_DIR = resolveWriteableDir(
+  process.env.BACKUP_DIR || "/backup",
+  path.join(DATA_DIR, "backups"),
+);
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");

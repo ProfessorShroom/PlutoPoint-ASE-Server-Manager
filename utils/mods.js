@@ -1,5 +1,56 @@
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
+const ini = require("ini");
+
+function parseIniFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    return ini.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch (e) {
+    return {};
+  }
+}
+
+function normalizeModIds(value) {
+  if (!value) return "";
+  if (Array.isArray(value)) return value.join(",");
+  return String(value)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(",");
+}
+
+function getConfiguredModIds(serverPath) {
+  if (!serverPath) return "";
+
+  const gusPath = path.join(
+    serverPath,
+    "ShooterGame",
+    "Saved",
+    "Config",
+    "LinuxServer",
+    "GameUserSettings.ini",
+  );
+  const gamePath = path.join(
+    serverPath,
+    "ShooterGame",
+    "Saved",
+    "Config",
+    "LinuxServer",
+    "Game.ini",
+  );
+
+  const gusConfig = parseIniFile(gusPath);
+  const gameConfig = parseIniFile(gamePath);
+  const serverSettings = gusConfig.ServerSettings || {};
+  const modInstaller = gameConfig.ModInstaller || gusConfig.ModInstaller || {};
+
+  return normalizeModIds(
+    serverSettings.ActiveMods || modInstaller.ModIDS || "",
+  );
+}
 
 function resolveWorkshopDir(workshopDir) {
   const candidates = [];
@@ -66,6 +117,113 @@ function copyDirectoryRecursive(sourceDir, targetDir) {
       fs.copyFileSync(sourcePath, targetPath);
     }
   }
+}
+
+async function downloadWorkshopMods(
+  serverPath,
+  serverName = "server",
+  options = {},
+) {
+  if (!serverPath) return { ok: false, error: "No server path was provided." };
+
+  const logger = options.logger || console.log;
+  const modIds = getConfiguredModIds(serverPath);
+  const modIdList = modIds
+    .split(",")
+    .map((modId) => modId.trim())
+    .filter(Boolean);
+
+  if (modIdList.length === 0) {
+    logger(`[Mods] No workshop mod IDs configured for ${serverName}`);
+    return { ok: true, downloaded: [] };
+  }
+
+  const steamcmdCandidates = [
+    process.env.STEAMCMD_PATH,
+    "/opt/steamcmd/steamcmd.sh",
+    "/usr/local/bin/steamcmd",
+    "/usr/games/steamcmd",
+  ].filter(Boolean);
+
+  const steamcmdPath = steamcmdCandidates.find((candidate) => {
+    try {
+      return fs.existsSync(candidate);
+    } catch (error) {
+      return false;
+    }
+  });
+
+  if (!steamcmdPath) {
+    logger(
+      `[Mods] SteamCMD binary not found; cannot download workshop mods for ${serverName}`,
+    );
+    return { ok: false, error: "SteamCMD binary not found." };
+  }
+
+  const steamHome = options.steamHome || "/tmp/steamcmd-home";
+  const steamTmp = options.steamTmp || "/tmp/steamcmd-tmp";
+  fs.mkdirSync(steamHome, { recursive: true });
+  fs.mkdirSync(steamTmp, { recursive: true });
+
+  const steamcmdArgs = [
+    "+force_install_dir",
+    path.resolve(serverPath),
+    "+login",
+    "anonymous",
+    "+app_update",
+    "376030",
+    "+validate",
+  ];
+
+  modIdList.forEach((modId) => {
+    steamcmdArgs.push("+workshop_download_item", "346110", modId);
+  });
+  steamcmdArgs.push("+quit");
+
+  logger(
+    `[Mods] Downloading workshop items for ${serverName}: ${modIdList.join(", ")}`,
+  );
+
+  return new Promise((resolve, reject) => {
+    const steamcmd = spawn(
+      "/bin/sh",
+      [
+        "-lc",
+        `${steamcmdPath} ${steamcmdArgs.map((arg) => `'${arg.replace(/'/g, "'\\''")}'`).join(" ")}`,
+      ],
+      {
+        cwd: path.resolve(serverPath),
+        env: {
+          ...process.env,
+          HOME: steamHome,
+          STEAMHOME: steamHome,
+          TMPDIR: steamTmp,
+          XDG_CACHE_HOME: steamHome,
+          XDG_CONFIG_HOME: steamHome,
+        },
+      },
+    );
+
+    let output = "";
+    steamcmd.stdout.on("data", (data) => {
+      output += data.toString();
+      logger(data.toString().trim());
+    });
+    steamcmd.stderr.on("data", (data) => {
+      output += data.toString();
+      logger(`[Mods] ${data.toString().trim()}`);
+    });
+    steamcmd.on("error", (error) => {
+      reject(error);
+    });
+    steamcmd.on("close", (code) => {
+      if (code === 0) {
+        resolve({ ok: true, downloaded: modIdList, output });
+      } else {
+        reject(new Error(`SteamCMD exited with code ${code}`));
+      }
+    });
+  });
 }
 
 function syncServerMods(serverPath, serverName = "server", workshopDir) {
@@ -159,13 +317,21 @@ async function syncServerModsWithRetries(
   workshopDir,
   options = {},
 ) {
-  const { attempts = 10, retryDelayMs = 30000 } = options;
+  const { attempts = 10, retryDelayMs = 30000, logger = console.log } = options;
+
+  try {
+    await downloadWorkshopMods(serverPath, serverName, { logger });
+  } catch (err) {
+    logger(
+      `[Mods] Failed to download workshop items for ${serverName}: ${err.message}`,
+    );
+  }
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       syncServerMods(serverPath, serverName, workshopDir);
       if (attempt < attempts) {
-        console.log(
+        logger(
           `[Mods] Waiting ${retryDelayMs / 1000}s before next workshop sync check (attempt ${attempt}/${attempts})`,
         );
       }
@@ -173,7 +339,7 @@ async function syncServerModsWithRetries(
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
     } catch (err) {
-      console.error(`[Mods] Sync attempt ${attempt} failed:`, err.message);
+      logger(`[Mods] Sync attempt ${attempt} failed:`, err.message);
       if (attempt < attempts) {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
@@ -181,4 +347,9 @@ async function syncServerModsWithRetries(
   }
 }
 
-module.exports = { syncServerMods, syncServerModsWithRetries };
+module.exports = {
+  syncServerMods,
+  syncServerModsWithRetries,
+  getConfiguredModIds,
+  downloadWorkshopMods,
+};
