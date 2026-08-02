@@ -6,9 +6,19 @@ function linkServerMods(serverPath) {
   const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
+  console.log(
+    `[Mods] Running as user:`,
+    process.getuid ? process.getuid() : "unknown",
+  );
   console.log(`[Mods] Checking workshop directory: ${workshopDir}`);
-  if (!fs.existsSync(workshopDir)) {
-    console.log(`[Mods] Workshop directory not found at ${workshopDir}`);
+
+  try {
+    const stats = fs.statSync(workshopDir);
+    console.log(
+      `[Mods] Directory exists! Is directory? ${stats.isDirectory()}`,
+    );
+  } catch (err) {
+    console.error(`[Mods] Stat sync failed on workshopDir:`, err.message);
     return;
   }
 
