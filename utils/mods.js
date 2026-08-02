@@ -1,31 +1,25 @@
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 
 function linkServerMods(serverPath) {
-  // Explicitly force /home/ubuntu since we know for a fact that is where the volume/files live
-  const baseHome = fs.existsSync("/home/ubuntu")
-    ? "/home/ubuntu"
-    : os.homedir();
-  const workshopDir = path.join(
-    baseHome,
-    "Steam",
-    "steamapps",
-    "workshop",
-    "content",
-    "346110",
-  );
+  const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
-  console.log(`[Mods] Checking workshop directory: ${workshopDir}`);
-  if (!fs.existsSync(workshopDir)) {
-    console.log(`[Mods] Workshop directory not found at ${workshopDir}`);
+  console.log(
+    `[Mods] Forcing symlinks from ${workshopDir} to ${targetModsDir}`,
+  );
+
+  try {
+    fs.mkdirSync(targetModsDir, { recursive: true });
+  } catch (err) {
+    console.error(
+      `[Mods] Failed to create target mods directory:`,
+      err.message,
+    );
     return;
   }
 
-  fs.mkdirSync(targetModsDir, { recursive: true });
-
-  let entries = [];
+  let entries;
   try {
     entries = fs.readdirSync(workshopDir, { withFileTypes: true });
   } catch (err) {
@@ -33,36 +27,47 @@ function linkServerMods(serverPath) {
     return;
   }
 
-  const foundModIds = entries
-    .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
-    .map((entry) => entry.name);
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;
 
-  console.log(`[Mods] Found mod folders on disk:`, foundModIds);
-
-  for (const modId of foundModIds) {
+    const modId = entry.name;
     const sourceFolder = path.join(workshopDir, modId);
     const targetFolder = path.join(targetModsDir, modId);
     const sourceFile = path.join(workshopDir, `${modId}.mod`);
     const targetFile = path.join(targetModsDir, `${modId}.mod`);
 
+    // Force remove existing target folder/symlink if it exists
     try {
-      if (fs.existsSync(sourceFolder)) {
-        if (fs.existsSync(targetFolder)) {
-          fs.rmSync(targetFolder, { recursive: true, force: true });
-        }
-        fs.symlinkSync(sourceFolder, targetFolder, "dir");
-        console.log(`[Mods] Successfully linked mod folder: ${modId}`);
+      if (fs.existsSync(targetFolder)) {
+        fs.rmSync(targetFolder, { recursive: true, force: true });
       }
+    } catch (e) {}
 
-      if (fs.existsSync(sourceFile)) {
+    // Create folder symlink
+    try {
+      fs.symlinkSync(sourceFolder, targetFolder, "dir");
+      console.log(`[Mods] Successfully symlinked mod folder: ${modId}`);
+    } catch (err) {
+      console.error(
+        `[Mods] Failed to symlink mod folder ${modId}:`,
+        err.message,
+      );
+    }
+
+    // Force remove and create .mod file symlink if present
+    if (fs.existsSync(sourceFile)) {
+      try {
         if (fs.existsSync(targetFile)) {
           fs.rmSync(targetFile, { force: true });
         }
         fs.symlinkSync(sourceFile, targetFile, "file");
-        console.log(`[Mods] Successfully linked mod file: ${modId}.mod`);
+        console.log(`[Mods] Successfully symlinked mod file: ${modId}.mod`);
+      } catch (err) {
+        console.error(
+          `[Mods] Failed to symlink mod file ${modId}.mod:`,
+          err.message,
+        );
       }
-    } catch (err) {
-      console.error(`[Mods] Failed to link mod ${modId}:`, err.message);
     }
   }
 }
