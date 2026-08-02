@@ -41,7 +41,6 @@ fi
 chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"
 
 # Fix ownership of your app/data directories so the new user can read/write them
-# (Adjust /data and /backup to match your container's volume paths)
 mkdir -p /data /backup /app
 chown -R "$USER_ID:$GROUP_ID" /data /backup /app
 
@@ -52,21 +51,6 @@ fi
 if [ -f /opt/steamcmd/steamcmd.sh ]; then chmod +x /opt/steamcmd/steamcmd.sh; fi
 if [ -f /opt/steamcmd/linux32/steamcmd ]; then chmod +x /opt/steamcmd/linux32/steamcmd; fi
 if [ -f /opt/steamcmd/linux64/steamcmd ]; then chmod +x /opt/steamcmd/linux64/steamcmd; fi
-
-# Fix ARK's SteamCMD dependency for automanagedmods
-echo "Creating SteamCMD symlink for ARK automanagedmods..."
-
-# Create the parent directory structure
-mkdir -p /data/Engine/Binaries/ThirdParty/SteamCMD
-
-# Erase the 'Linux' folder if ARK previously generated it
-rm -rf /data/Engine/Binaries/ThirdParty/SteamCMD/Linux
-
-# Create the symlink exactly where ARK expects it
-ln -s /opt/steamcmd /data/Engine/Binaries/ThirdParty/SteamCMD/Linux
-
-# Fix permissions for the newly created path
-chown -R "$USER_ID:$GROUP_ID" /data/Engine/Binaries/ThirdParty/SteamCMD
 
 # Drop root privileges and execute the main container command using gosu
 exec gosu "$USER_NAME" "$@"
