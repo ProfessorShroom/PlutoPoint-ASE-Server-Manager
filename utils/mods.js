@@ -1,70 +1,23 @@
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 function resolveWorkshopDir(workshopDir) {
   const candidates = [];
-  const seen = new Set();
 
   const addCandidate = (candidate) => {
     if (!candidate) return;
     const normalized = path.resolve(candidate);
-    if (!seen.has(normalized)) {
-      seen.add(normalized);
+    if (!candidates.includes(normalized)) {
       candidates.push(normalized);
     }
   };
 
   if (workshopDir) addCandidate(workshopDir);
 
-  for (const envValue of [
-    process.env.STEAM_WORKSHOP_DIR,
-    process.env.WORKSHOP_CONTENT_DIR,
-    process.env.STEAMCMD_WORKSHOP_DIR,
-    process.env.STEAMHOME,
-    process.env.STEAM_HOME,
-    process.env.HOME,
-    process.env.USERPROFILE,
-  ]) {
-    if (!envValue) continue;
-    addCandidate(
-      path.join(envValue, "steamapps", "workshop", "content", "346110"),
-    );
-    addCandidate(
-      path.join(
-        envValue,
-        "Steam",
-        "steamapps",
-        "workshop",
-        "content",
-        "346110",
-      ),
-    );
-    addCandidate(
-      path.join(
-        envValue,
-        ".steam",
-        "steam",
-        "steamapps",
-        "workshop",
-        "content",
-        "346110",
-      ),
-    );
-  }
-
-  for (const base of [
-    os.homedir(),
-    "/home/ubuntu",
-    "/home/appuser",
-    "/root",
-    "/tmp/steamcmd-home",
-  ]) {
-    addCandidate(
-      path.join(base, "Steam", "steamapps", "workshop", "content", "346110"),
-    );
-    addCandidate(path.join(base, "steamapps", "workshop", "content", "346110"));
-  }
+  addCandidate("/home/ubuntu/Steam/steamapps/workshop/content/346110");
+  addCandidate("/home/ubuntu/steamapps/workshop/content/346110");
+  addCandidate("/root/Steam/steamapps/workshop/content/346110");
+  addCandidate("/root/steamapps/workshop/content/346110");
 
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
