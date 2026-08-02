@@ -93,44 +93,27 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
     `[Mods] Workshop entries: ${entries.map((entry) => entry.name).join(", ")}`,
   );
 
-  const currentWorkshopEntries = new Set();
-  const protectedEntries = new Set([
-    "CrystalIsles",
-    "FjordurOfficial",
-    "LostIsland",
-    "Ragnarok",
-    "TheCenter",
-    "Valguero",
-  ]);
-
   for (const entry of entries) {
     const entryName = entry.name;
     const sourcePath = path.join(resolvedWorkshopDir, entryName);
     const targetPath = path.join(targetModsDir, entryName);
-    currentWorkshopEntries.add(entryName);
 
     try {
       if (entry.isDirectory()) {
-        if (
-          fs.existsSync(targetPath) ||
-          fs.lstatSync(targetPath, { throwIfNoEntry: false })
-        ) {
+        if (fs.existsSync(targetPath)) {
           fs.rmSync(targetPath, { recursive: true, force: true });
         }
         copyDirectoryRecursive(sourcePath, targetPath);
         console.log(
-          `[Mods] Copied workshop directory ${entryName} into ${serverName}`,
+          `[ModsDebug] Copied workshop directory ${entryName} -> ${targetPath}`,
         );
       } else if (entry.isFile()) {
-        if (
-          fs.existsSync(targetPath) ||
-          fs.lstatSync(targetPath, { throwIfNoEntry: false })
-        ) {
+        if (fs.existsSync(targetPath)) {
           fs.rmSync(targetPath, { recursive: true, force: true });
         }
         fs.copyFileSync(sourcePath, targetPath);
         console.log(
-          `[Mods] Copied workshop file ${entryName} into ${serverName}`,
+          `[ModsDebug] Copied workshop file ${entryName} -> ${targetPath}`,
         );
       }
     } catch (err) {
@@ -141,23 +124,9 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
     }
   }
 
-  for (const existingEntry of fs.readdirSync(targetModsDir, {
-    withFileTypes: true,
-  })) {
-    if (!existingEntry.isDirectory() && !existingEntry.isFile()) continue;
-
-    const existingName = existingEntry.name;
-    if (
-      !currentWorkshopEntries.has(existingName) &&
-      !protectedEntries.has(existingName)
-    ) {
-      const existingPath = path.join(targetModsDir, existingName);
-      fs.rmSync(existingPath, { recursive: true, force: true });
-      console.log(
-        `[Mods] Removed stale mod entry ${existingName} from ${serverName}`,
-      );
-    }
-  }
+  console.log(
+    `[Mods] Left existing server-side mods content intact for ${serverName}`,
+  );
 }
 
 async function syncServerModsWithRetries(

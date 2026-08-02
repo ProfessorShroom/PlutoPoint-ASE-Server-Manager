@@ -9,6 +9,8 @@ async function toggleAutoStart(autoStart) {
   if (res.ok) {
     const server = serversList.find((s) => s.id === currentServerId);
     if (server) server.autoStart = autoStart;
+    const toggle = document.getElementById("dashboard-server-autostart");
+    if (toggle) toggle.checked = autoStart;
   } else {
     const data = await res.json();
     alert(data.error);

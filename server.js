@@ -6,6 +6,8 @@ const serverRoutes = require("./routes/servers");
 const controlRoutes = require("./routes/control");
 const backupRoutes = require("./routes/backup");
 const settingRoutes = require("./routes/settings");
+const { loadServers } = require("./utils/helpers");
+const { launchServerProcess } = require("./utils/server-launch");
 
 const app = express();
 
@@ -31,9 +33,19 @@ app.use("/api", settingRoutes);
 
 const PORT = process.env.PORT || 3000;
 
+function startAutostartServers() {
+  const servers = loadServers();
+  servers.forEach((server) => {
+    if (!server.autoStart) return;
+    console.log(`[Autostart] Queued startup for ${server.name}`);
+    launchServerProcess(server, { logger: console.log });
+  });
+}
+
 function startServer() {
   return app.listen(PORT, () => {
     console.log(`ARK Manager server running on port ${PORT}`);
+    startAutostartServers();
   });
 }
 

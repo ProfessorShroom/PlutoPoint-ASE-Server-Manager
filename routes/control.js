@@ -231,7 +231,14 @@ router.post(
       console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
     }
 
-    const { serverArgs } = buildStartupArgs(server.path, server.name);
+    const { launchArgs, serverArgs } = buildStartupArgs(
+      server.path,
+      server.name,
+    );
+    console.log(
+      `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${JSON.stringify(serverArgs)}`,
+    );
+    console.log(`[StartupDebug] Launch string=${launchArgs}`);
 
     const serverProcess = spawn(shooterGameBin, serverArgs, {
       cwd: path.dirname(shooterGameBin),
@@ -366,7 +373,14 @@ router.post(
         console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
       }
 
-      const { serverArgs } = buildStartupArgs(server.path, server.name);
+      const { launchArgs, serverArgs } = buildStartupArgs(
+        server.path,
+        server.name,
+      );
+      console.log(
+        `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${JSON.stringify(serverArgs)}`,
+      );
+      console.log(`[StartupDebug] Launch string=${launchArgs}`);
 
       const serverProcess = spawn(shooterGameBin, serverArgs, {
         cwd: path.dirname(shooterGameBin),
@@ -404,7 +418,7 @@ router.post(
     const server = servers.find((s) => s.id === req.params.serverId);
     if (!server) return res.status(404).json({ error: "Server not found" });
 
-    server.autoStart = !server.autoStart;
+    server.autoStart = !!req.body?.autoStart;
     saveServers(servers);
     res.json({ success: true, autoStart: server.autoStart });
   },

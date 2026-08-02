@@ -413,6 +413,11 @@ async function loadDashboardData() {
 
   const statusText = document.getElementById("install-status-text");
   const btnInstall = document.getElementById("btn-install");
+  const autoStartToggle = document.getElementById("dashboard-server-autostart");
+  if (autoStartToggle) {
+    const server = serversList.find((s) => s.id === currentServerId);
+    autoStartToggle.checked = !!server?.autoStart;
+  }
   if (data.installed) {
     statusText.innerText = "Server files are installed and ready.";
     btnInstall.classList.remove("hidden");

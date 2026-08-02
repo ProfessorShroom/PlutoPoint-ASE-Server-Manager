@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 const ini = require("ini");
+const { activeServers, serverLogs } = require("./helpers");
 
 function parseIniFile(filePath) {
   try {
@@ -59,11 +61,106 @@ function buildStartupArgs(serverPath, serverName) {
 
   const baseArgs = `${mapName}?listen?SessionName=${sessionName}?RCONEnabled=True?RCONPort=27020`;
   const launchArgs = modIds ? `${baseArgs}?GameModIds=${modIds}` : baseArgs;
+  const serverArgs = [
+    launchArgs,
+    "-server",
+    "-log",
+    "-usecache",
+    "-NoBattlEye",
+  ];
 
   return {
     launchArgs,
-    serverArgs: [launchArgs, "-server", "-log", "-usecache", "-NoBattlEye"],
+    serverArgs,
+    mapName,
+    sessionName,
+    modIds,
   };
 }
 
-module.exports = { buildStartupArgs };
+function launchServerProcess(server, options = {}) {
+  const logger = options.logger || console.log;
+
+  if (!server?.path) {
+    logger("[Autostart] No server path was provided.");
+    return { ok: false, error: "No server path was provided." };
+  }
+
+  const shooterGameBin = path.join(
+    server.path,
+    "ShooterGame",
+    "Binaries",
+    "Linux",
+    "ShooterGameServer",
+  );
+
+  if (!fs.existsSync(shooterGameBin)) {
+    logger(`[Autostart] Server binary files not found for ${server.name}.`);
+    return { ok: false, error: "Server binary files not found." };
+  }
+
+  setTimeout(() => {
+    try {
+      const { launchArgs, serverArgs, mapName, sessionName, modIds } =
+        buildStartupArgs(server.path, server.name);
+      logger(
+        `[StartupDebug] Server=${server.name} Binary=${shooterGameBin} Args=${JSON.stringify(serverArgs)}`,
+      );
+      logger(
+        `[StartupDebug] Map=${mapName} Session=${sessionName} ModIds=${modIds || "<none>"}`,
+      );
+      logger(`[StartupDebug] Launch string=${launchArgs}`);
+      const serverProcess = spawn(shooterGameBin, serverArgs, {
+        cwd: path.dirname(shooterGameBin),
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      serverLogs[server.id] = [
+        `[${new Date().toISOString()}] Starting server process on boot...\n`,
+        `[INFO] Server process launched, waiting for ARK server startup...\n`,
+      ];
+
+      serverProcess.stdout.on("data", (data) => {
+        if (!serverLogs[server.id]) serverLogs[server.id] = [];
+        serverLogs[server.id].push(data.toString());
+        if (serverLogs[server.id].length > 500) serverLogs[server.id].shift();
+      });
+      serverProcess.stderr.on("data", (data) => {
+        if (!serverLogs[server.id]) serverLogs[server.id] = [];
+        const text = data.toString();
+        const lines = text.split(/\r?\n/);
+        lines.forEach((line) => {
+          if (!line) return;
+          const isSteamApiWarning =
+            /\[S_API FAIL\]|SteamAPI_Init\(\) failed|SteamAPI_IsSteamRunning\(\) failed|Setting breakpad minidump AppID/.test(
+              line,
+            );
+          serverLogs[server.id].push(
+            isSteamApiWarning ? `[INFO] ${line}` : `ERROR: ${line}`,
+          );
+        });
+        if (serverLogs[server.id].length > 500) serverLogs[server.id].shift();
+      });
+      serverProcess.on("close", (code) => {
+        if (!serverLogs[server.id]) serverLogs[server.id] = [];
+        serverLogs[server.id].push(
+          `\n[Server process exited with code ${code}]\n`,
+        );
+        delete activeServers[server.id];
+      });
+
+      serverProcess.unref();
+      activeServers[server.id] = serverProcess.pid;
+      logger(
+        `[Autostart] Started ${server.name} with PID ${serverProcess.pid}`,
+      );
+    } catch (error) {
+      logger(`[Autostart] Failed to launch ${server.name}: ${error.message}`);
+    }
+  }, 5000);
+
+  return { ok: true };
+}
+
+module.exports = { buildStartupArgs, launchServerProcess };
