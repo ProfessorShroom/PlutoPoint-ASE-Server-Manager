@@ -14,6 +14,22 @@ const {
 } = require("../utils/helpers");
 const { linkServerMods } = require("../utils/mods"); // <-- Added import
 
+function syncServerMods(server, logFn = console.log) {
+  const attemptLink = (attempt) => {
+    try {
+      linkServerMods(server.path, server.name);
+      logFn(
+        `[INFO] Successfully synchronized mod symlinks for ${server.name} (attempt ${attempt})`,
+      );
+    } catch (err) {
+      logFn(`[WARN] Failed to link mods on attempt ${attempt}: ${err.message}`);
+    }
+  };
+
+  attemptLink(1);
+  setTimeout(() => attemptLink(2), 3000);
+}
+
 router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
   const servers = loadServers();
   const server = servers.find((s) => s.id === req.params.serverId);
@@ -104,12 +120,8 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
 
     // Link mods right after installation finishes successfully
     if (code === 0) {
-      try {
-        linkServerMods(server.path);
-        sendLog(`[INFO] Automatically checked and linked server mods.\n`);
-      } catch (err) {
-        sendLog(`[WARN] Failed to link mods: ${err.message}\n`);
-      }
+      syncServerMods(server, (message) => sendLog(`${message}\n`));
+      sendLog(`[INFO] Automatically checked and linked server mods.\n`);
     }
 
     res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
@@ -171,14 +183,7 @@ router.post(
       return res.status(400).json({ error: "Server binary files not found." });
 
     // Link mods dynamically before starting the server process
-    try {
-      linkServerMods(server.path);
-      console.log(
-        `[INFO] Successfully synchronized mod symlinks for ${server.name}`,
-      );
-    } catch (err) {
-      console.error(`[WARN] Failed to link mods on start: ${err.message}`);
-    }
+    syncServerMods(server, (message) => console.log(message));
 
     try {
       const absServerPath = path.resolve(server.path);
@@ -335,14 +340,7 @@ router.post(
       if (!fs.existsSync(shooterGameBin)) return;
 
       // Link mods dynamically before restarting server binary
-      try {
-        linkServerMods(server.path);
-        console.log(
-          `[INFO] Successfully synchronized mod symlinks for ${server.name}`,
-        );
-      } catch (err) {
-        console.error(`[WARN] Failed to link mods on restart: ${err.message}`);
-      }
+      syncServerMods(server, (message) => console.log(message));
 
       try {
         const absServerPath = path.resolve(server.path);
