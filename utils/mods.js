@@ -94,6 +94,14 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
   );
 
   const currentWorkshopEntries = new Set();
+  const protectedEntries = new Set([
+    "CrystalIsles",
+    "FjordurOfficial",
+    "LostIsland",
+    "Ragnarok",
+    "TheCenter",
+    "Valguero",
+  ]);
 
   for (const entry of entries) {
     const entryName = entry.name;
@@ -139,7 +147,10 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
     if (!existingEntry.isDirectory() && !existingEntry.isFile()) continue;
 
     const existingName = existingEntry.name;
-    if (!currentWorkshopEntries.has(existingName)) {
+    if (
+      !currentWorkshopEntries.has(existingName) &&
+      !protectedEntries.has(existingName)
+    ) {
       const existingPath = path.join(targetModsDir, existingName);
       fs.rmSync(existingPath, { recursive: true, force: true });
       console.log(
@@ -155,11 +166,16 @@ async function syncServerModsWithRetries(
   workshopDir,
   options = {},
 ) {
-  const { attempts = 4, retryDelayMs = 3000 } = options;
+  const { attempts = 10, retryDelayMs = 30000 } = options;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       syncServerMods(serverPath, serverName, workshopDir);
+      if (attempt < attempts) {
+        console.log(
+          `[Mods] Waiting ${retryDelayMs / 1000}s before next workshop sync check (attempt ${attempt}/${attempts})`,
+        );
+      }
       if (attempt < attempts) {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
