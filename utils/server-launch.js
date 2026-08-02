@@ -38,6 +38,57 @@ function getRuntimeEnv() {
   };
 }
 
+function prepareSteamRuntime(serverPath, options = {}) {
+  const runtimeRoots =
+    options.runtimeRoots ||
+    [
+      process.env.STEAM_RUNTIME_ROOT,
+      "/usr/lib/steamcmd",
+      "/usr/lib/x86_64-linux-gnu",
+      "/usr/games",
+    ].filter(Boolean);
+
+  const steamCmdTargetDir = path.join(
+    serverPath,
+    "Engine",
+    "Binaries",
+    "ThirdParty",
+    "SteamCMD",
+  );
+  const runtimeLinkDir = path.join(steamCmdTargetDir, "Linux64");
+
+  fs.mkdirSync(steamCmdTargetDir, { recursive: true });
+
+  let runtimeDir = null;
+  for (const root of runtimeRoots) {
+    const candidate = path.join(root, "linux64");
+    if (fs.existsSync(path.join(candidate, "steamclient.so"))) {
+      runtimeDir = candidate;
+      break;
+    }
+  }
+
+  if (!runtimeDir) {
+    return { runtimeDir: null, env: getRuntimeEnv() };
+  }
+
+  try {
+    fs.rmSync(runtimeLinkDir, { recursive: true, force: true });
+    fs.symlinkSync(runtimeDir, runtimeLinkDir, "dir");
+  } catch (error) {
+    // If the link cannot be created, continue with the runtime environment only.
+  }
+
+  const env = getRuntimeEnv();
+  const ldLibraryPath = [runtimeDir, env.LD_LIBRARY_PATH]
+    .filter(Boolean)
+    .join(path.delimiter);
+  env.LD_LIBRARY_PATH = ldLibraryPath;
+  env.STEAM_RUNTIME_ROOT = runtimeDir;
+
+  return { runtimeDir, env };
+}
+
 function buildStartupArgs(serverPath, serverName) {
   let mapName = "TheIsland";
   let sessionName = serverName;
@@ -135,11 +186,12 @@ function launchServerProcess(server, options = {}) {
         `[StartupDebug] Map=${mapName} Session=${sessionName} ModIds=${modIds || "<none>"}`,
       );
       logger(`[StartupDebug] Launch string=${launchArgs}`);
+      const { env: runtimeEnv } = prepareSteamRuntime(server.path);
       const serverProcess = spawn(shooterGameBin, serverArgs, {
         cwd: path.dirname(shooterGameBin),
         detached: true,
         stdio: ["ignore", "pipe", "pipe"],
-        env: getRuntimeEnv(),
+        env: runtimeEnv,
       });
 
       serverLogs[server.id] = [

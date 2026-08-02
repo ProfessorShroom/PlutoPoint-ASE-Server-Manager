@@ -12,7 +12,11 @@ const {
   serverLogs,
 } = require("../utils/helpers");
 const { syncServerModsWithRetries } = require("../utils/mods");
-const { buildStartupArgs, getRuntimeEnv } = require("../utils/server-launch");
+const {
+  buildStartupArgs,
+  getRuntimeEnv,
+  prepareSteamRuntime,
+} = require("../utils/server-launch");
 
 async function syncServerMods(server, logFn = console.log) {
   try {
@@ -210,28 +214,19 @@ router.post(
     }
 
     try {
-      const absServerPath = path.resolve(server.path);
-      const steamCmdTargetDir = path.join(
-        absServerPath,
-        "Engine",
-        "Binaries",
-        "ThirdParty",
-        "SteamCMD",
-      );
-      const linuxSymlink = path.join(steamCmdTargetDir, "Linux");
-
-      fs.mkdirSync(steamCmdTargetDir, { recursive: true });
-
-      try {
-        fs.rmSync(linuxSymlink, { recursive: true, force: true });
-      } catch (e) {}
-
-      fs.symlinkSync("/opt/steamcmd", linuxSymlink);
-      console.log(
-        `[INFO] Successfully symlinked /opt/steamcmd to ${linuxSymlink}`,
-      );
+      const { runtimeDir, env } = prepareSteamRuntime(server.path);
+      if (runtimeDir) {
+        console.log(
+          `[INFO] Prepared Steam runtime at ${runtimeDir} for ${server.name}`,
+        );
+      } else {
+        console.log(
+          `[WARN] No Steam runtime library was found for ${server.name}`,
+        );
+      }
+      const runtimeEnv = env;
     } catch (err) {
-      console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
+      console.error(`[WARN] Failed to prepare Steam runtime: ${err.message}`);
     }
 
     const { launchArgs, serverArgs } = buildStartupArgs(
@@ -246,11 +241,12 @@ router.post(
     );
     console.log(`[StartupDebug] Launch string=${launchArgs}`);
 
+    const { env: runtimeEnv } = prepareSteamRuntime(server.path);
     const serverProcess = spawn(shooterGameBin, serverArgs, {
       cwd: path.dirname(shooterGameBin),
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: getRuntimeEnv(),
+      env: runtimeEnv,
     });
 
     serverLogs[server.id] = [
@@ -359,28 +355,18 @@ router.post(
       }
 
       try {
-        const absServerPath = path.resolve(server.path);
-        const steamCmdTargetDir = path.join(
-          absServerPath,
-          "Engine",
-          "Binaries",
-          "ThirdParty",
-          "SteamCMD",
-        );
-        const linuxSymlink = path.join(steamCmdTargetDir, "Linux");
-
-        fs.mkdirSync(steamCmdTargetDir, { recursive: true });
-
-        try {
-          fs.rmSync(linuxSymlink, { recursive: true, force: true });
-        } catch (e) {}
-
-        fs.symlinkSync("/opt/steamcmd", linuxSymlink);
-        console.log(
-          `[INFO] Successfully symlinked /opt/steamcmd to ${linuxSymlink}`,
-        );
+        const { runtimeDir } = prepareSteamRuntime(server.path);
+        if (runtimeDir) {
+          console.log(
+            `[INFO] Prepared Steam runtime at ${runtimeDir} for ${server.name}`,
+          );
+        } else {
+          console.log(
+            `[WARN] No Steam runtime library was found for ${server.name}`,
+          );
+        }
       } catch (err) {
-        console.error(`[WARN] Failed to symlink SteamCMD: ${err.message}`);
+        console.error(`[WARN] Failed to prepare Steam runtime: ${err.message}`);
       }
 
       const { launchArgs, serverArgs } = buildStartupArgs(
@@ -395,11 +381,12 @@ router.post(
       );
       console.log(`[StartupDebug] Launch string=${launchArgs}`);
 
+      const { env: runtimeEnv } = prepareSteamRuntime(server.path);
       const serverProcess = spawn(shooterGameBin, serverArgs, {
         cwd: path.dirname(shooterGameBin),
         detached: true,
         stdio: ["ignore", "pipe", "pipe"],
-        env: getRuntimeEnv(),
+        env: runtimeEnv,
       });
 
       serverProcess.stdout.on("data", (data) => {
