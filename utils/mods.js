@@ -1,9 +1,20 @@
 const fs = require("fs");
 const path = require("path");
-const ini = require("ini");
+const os = require("os");
 
 function linkServerMods(serverPath) {
-  const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
+  // Explicitly force /home/ubuntu since we know for a fact that is where the volume/files live
+  const baseHome = fs.existsSync("/home/ubuntu")
+    ? "/home/ubuntu"
+    : os.homedir();
+  const workshopDir = path.join(
+    baseHome,
+    "Steam",
+    "steamapps",
+    "workshop",
+    "content",
+    "346110",
+  );
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
   console.log(`[Mods] Checking workshop directory: ${workshopDir}`);
@@ -14,7 +25,6 @@ function linkServerMods(serverPath) {
 
   fs.mkdirSync(targetModsDir, { recursive: true });
 
-  // Read all subfolders/files present in the workshop content directory
   let entries = [];
   try {
     entries = fs.readdirSync(workshopDir, { withFileTypes: true });
@@ -23,7 +33,6 @@ function linkServerMods(serverPath) {
     return;
   }
 
-  // Filter out numeric mod IDs that are actually present on disk
   const foundModIds = entries
     .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
     .map((entry) => entry.name);
@@ -37,7 +46,6 @@ function linkServerMods(serverPath) {
     const targetFile = path.join(targetModsDir, `${modId}.mod`);
 
     try {
-      // 1. Link the mod directory
       if (fs.existsSync(sourceFolder)) {
         if (fs.existsSync(targetFolder)) {
           fs.rmSync(targetFolder, { recursive: true, force: true });
@@ -46,7 +54,6 @@ function linkServerMods(serverPath) {
         console.log(`[Mods] Successfully linked mod folder: ${modId}`);
       }
 
-      // 2. Link the corresponding .mod file if it exists
       if (fs.existsSync(sourceFile)) {
         if (fs.existsSync(targetFile)) {
           fs.rmSync(targetFile, { force: true });
