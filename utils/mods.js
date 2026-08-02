@@ -93,42 +93,43 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
     `[Mods] Workshop entries: ${entries.map((entry) => entry.name).join(", ")}`,
   );
 
-  const currentModIds = new Set();
+  const currentWorkshopEntries = new Set();
 
   for (const entry of entries) {
-    if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;
-
-    const modId = entry.name;
-    currentModIds.add(modId);
-    const sourceFolder = path.join(resolvedWorkshopDir, modId);
-    const targetFolder = path.join(targetModsDir, modId);
-    const sourceFile = path.join(resolvedWorkshopDir, `${modId}.mod`);
-    const targetFile = path.join(targetModsDir, `${modId}.mod`);
+    const entryName = entry.name;
+    const sourcePath = path.join(resolvedWorkshopDir, entryName);
+    const targetPath = path.join(targetModsDir, entryName);
+    currentWorkshopEntries.add(entryName);
 
     try {
-      if (fs.existsSync(sourceFolder)) {
+      if (entry.isDirectory()) {
         if (
-          fs.existsSync(targetFolder) ||
-          fs.lstatSync(targetFolder, { throwIfNoEntry: false })
+          fs.existsSync(targetPath) ||
+          fs.lstatSync(targetPath, { throwIfNoEntry: false })
         ) {
-          fs.rmSync(targetFolder, { recursive: true, force: true });
+          fs.rmSync(targetPath, { recursive: true, force: true });
         }
-        copyDirectoryRecursive(sourceFolder, targetFolder);
-        console.log(`[Mods] Copied mod folder ${modId} into ${serverName}`);
-      }
-
-      if (fs.existsSync(sourceFile)) {
+        copyDirectoryRecursive(sourcePath, targetPath);
+        console.log(
+          `[Mods] Copied workshop directory ${entryName} into ${serverName}`,
+        );
+      } else if (entry.isFile()) {
         if (
-          fs.existsSync(targetFile) ||
-          fs.lstatSync(targetFile, { throwIfNoEntry: false })
+          fs.existsSync(targetPath) ||
+          fs.lstatSync(targetPath, { throwIfNoEntry: false })
         ) {
-          fs.rmSync(targetFile, { recursive: true, force: true });
+          fs.rmSync(targetPath, { recursive: true, force: true });
         }
-        fs.copyFileSync(sourceFile, targetFile);
-        console.log(`[Mods] Copied mod file ${modId}.mod into ${serverName}`);
+        fs.copyFileSync(sourcePath, targetPath);
+        console.log(
+          `[Mods] Copied workshop file ${entryName} into ${serverName}`,
+        );
       }
     } catch (err) {
-      console.error(`[Mods] Failed to sync mod ${modId}:`, err.message);
+      console.error(
+        `[Mods] Failed to sync workshop entry ${entryName}:`,
+        err.message,
+      );
     }
   }
 
@@ -138,8 +139,7 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
     if (!existingEntry.isDirectory() && !existingEntry.isFile()) continue;
 
     const existingName = existingEntry.name;
-    if (!/^(\d+|\d+\.mod)$/.test(existingName)) continue;
-    if (!currentModIds.has(existingName.replace(/\.mod$/, ""))) {
+    if (!currentWorkshopEntries.has(existingName)) {
       const existingPath = path.join(targetModsDir, existingName);
       fs.rmSync(existingPath, { recursive: true, force: true });
       console.log(
