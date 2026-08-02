@@ -24,6 +24,20 @@ function normalizeModIds(value) {
     .join(",");
 }
 
+function getRuntimeEnv() {
+  const runtimeHome =
+    process.env.RUNTIME_HOME || process.env.HOME || "/home/ubuntu";
+  return {
+    ...process.env,
+    HOME: runtimeHome,
+    STEAMHOME: runtimeHome,
+    USER_HOME: runtimeHome,
+    XDG_CACHE_HOME: path.join(runtimeHome, ".cache"),
+    XDG_CONFIG_HOME: path.join(runtimeHome, ".config"),
+    TMPDIR: process.env.TMPDIR || "/tmp",
+  };
+}
+
 function buildStartupArgs(serverPath, serverName) {
   let mapName = "TheIsland";
   let sessionName = serverName;
@@ -125,6 +139,7 @@ function launchServerProcess(server, options = {}) {
         cwd: path.dirname(shooterGameBin),
         detached: true,
         stdio: ["ignore", "pipe", "pipe"],
+        env: getRuntimeEnv(),
       });
 
       serverLogs[server.id] = [
@@ -174,4 +189,4 @@ function launchServerProcess(server, options = {}) {
   return { ok: true };
 }
 
-module.exports = { buildStartupArgs, launchServerProcess };
+module.exports = { buildStartupArgs, launchServerProcess, getRuntimeEnv };

@@ -52,7 +52,7 @@ function getConfiguredModIds(serverPath) {
   );
 }
 
-function resolveWorkshopDir(workshopDir) {
+function resolveWorkshopDir(workshopDir, serverPath) {
   const candidates = [];
 
   const addCandidate = (candidate) => {
@@ -65,7 +65,24 @@ function resolveWorkshopDir(workshopDir) {
 
   if (workshopDir) addCandidate(workshopDir);
 
+  if (serverPath) {
+    addCandidate(
+      path.join(serverPath, "steamapps", "workshop", "content", "346110"),
+    );
+    addCandidate(
+      path.join(
+        serverPath,
+        "Steam",
+        "steamapps",
+        "workshop",
+        "content",
+        "346110",
+      ),
+    );
+  }
+
   const envRoots = [
+    process.env.RUNTIME_HOME,
     process.env.HOME,
     process.env.STEAMHOME,
     process.env.USER_HOME,
@@ -172,7 +189,6 @@ async function downloadWorkshopMods(
     "anonymous",
     "+app_update",
     "376030",
-    "+validate",
   ];
 
   modIdList.forEach((modId) => {
@@ -218,7 +234,34 @@ async function downloadWorkshopMods(
     });
     steamcmd.on("close", (code) => {
       if (code === 0) {
-        resolve({ ok: true, downloaded: modIdList, output });
+        const serverRoot = path.resolve(serverPath);
+        const workshopPath = path.join(
+          serverRoot,
+          "steamapps",
+          "workshop",
+          "content",
+          "346110",
+        );
+        const fallbackWorkshopPath = path.join(
+          serverRoot,
+          "Steam",
+          "steamapps",
+          "workshop",
+          "content",
+          "346110",
+        );
+        const resolvedWorkshopPath = fs.existsSync(workshopPath)
+          ? workshopPath
+          : fs.existsSync(fallbackWorkshopPath)
+            ? fallbackWorkshopPath
+            : null;
+
+        resolve({
+          ok: true,
+          downloaded: modIdList,
+          output,
+          workshopPath: resolvedWorkshopPath,
+        });
       } else {
         reject(new Error(`SteamCMD exited with code ${code}`));
       }
@@ -236,7 +279,7 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
     "Content",
     "Mods",
   );
-  const resolvedWorkshopDir = resolveWorkshopDir(workshopDir);
+  const resolvedWorkshopDir = resolveWorkshopDir(workshopDir, absServerPath);
 
   if (!fs.existsSync(absServerPath)) {
     fs.mkdirSync(absServerPath, { recursive: true });
@@ -319,8 +362,15 @@ async function syncServerModsWithRetries(
 ) {
   const { attempts = 10, retryDelayMs = 30000, logger = console.log } = options;
 
+  let syncWorkshopDir = workshopDir;
+
   try {
-    await downloadWorkshopMods(serverPath, serverName, { logger });
+    const downloadResult = await downloadWorkshopMods(serverPath, serverName, {
+      logger,
+    });
+    if (downloadResult?.workshopPath) {
+      syncWorkshopDir = downloadResult.workshopPath;
+    }
   } catch (err) {
     logger(
       `[Mods] Failed to download workshop items for ${serverName}: ${err.message}`,
@@ -329,7 +379,7 @@ async function syncServerModsWithRetries(
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      syncServerMods(serverPath, serverName, workshopDir);
+      syncServerMods(serverPath, serverName, syncWorkshopDir);
       if (attempt < attempts) {
         logger(
           `[Mods] Waiting ${retryDelayMs / 1000}s before next workshop sync check (attempt ${attempt}/${attempts})`,

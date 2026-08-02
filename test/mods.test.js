@@ -43,6 +43,32 @@ test("syncServerMods creates server-side mod copies from workshop content", () =
   );
 });
 
+test("syncServerMods resolves workshop content from the server install path", () => {
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "mods-server-install-test-"),
+  );
+  const serverPath = path.join(tempRoot, "server-install");
+  const workshopRoot = path.join(
+    serverPath,
+    "steamapps",
+    "workshop",
+    "content",
+    "346110",
+  );
+  const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
+
+  fs.mkdirSync(targetModsDir, { recursive: true });
+  fs.mkdirSync(path.join(workshopRoot, "33333"), { recursive: true });
+  fs.writeFileSync(path.join(workshopRoot, "33333", "mod.info"), "hello");
+
+  syncServerMods(serverPath, "server-install", undefined);
+
+  assert.ok(
+    fs.existsSync(path.join(targetModsDir, "33333")),
+    "expected workshop mods to be copied from the server install path",
+  );
+});
+
 test("getConfiguredModIds reads mod IDs from the ARK config", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-config-test-"));
   const serverPath = path.join(tempRoot, "server-config");

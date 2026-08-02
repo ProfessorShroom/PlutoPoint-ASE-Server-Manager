@@ -12,7 +12,7 @@ const {
   serverLogs,
 } = require("../utils/helpers");
 const { syncServerModsWithRetries } = require("../utils/mods");
-const { buildStartupArgs } = require("../utils/server-launch");
+const { buildStartupArgs, getRuntimeEnv } = require("../utils/server-launch");
 
 async function syncServerMods(server, logFn = console.log) {
   try {
@@ -248,6 +248,7 @@ router.post(
       cwd: path.dirname(shooterGameBin),
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
+      env: getRuntimeEnv(),
     });
 
     serverLogs[server.id] = [
@@ -396,6 +397,7 @@ router.post(
         cwd: path.dirname(shooterGameBin),
         detached: true,
         stdio: ["ignore", "pipe", "pipe"],
+        env: getRuntimeEnv(),
       });
 
       serverProcess.stdout.on("data", (data) => {
