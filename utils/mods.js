@@ -3,20 +3,18 @@ const path = require("path");
 const ini = require("ini");
 
 function linkServerMods(serverPath) {
-  const workshopDir = path.join(
-    process.env.HOME || "/home/ubuntu",
-    "Steam",
-    "steamapps",
-    "workshop",
-    "content",
-    "346110",
-  );
+  // Use direct path as discussed
+  const workshopDir = "/home/ubuntu/Steam/steamapps/workshop/content/346110";
   const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
 
-  if (!fs.existsSync(workshopDir)) return;
+  console.log(`[Mods] Checking workshop directory: ${workshopDir}`);
+  if (!fs.existsSync(workshopDir)) {
+    console.log(`[Mods] Workshop directory not found at ${workshopDir}`);
+    return;
+  }
+
   fs.mkdirSync(targetModsDir, { recursive: true });
 
-  // Read GameUserSettings.ini or Game.ini to find active mods
   const configDir = path.join(
     serverPath,
     "ShooterGame",
@@ -30,13 +28,21 @@ function linkServerMods(serverPath) {
   let modIds = [];
   try {
     if (fs.existsSync(gusPath)) {
-      const gusParsed = ini.parse(fs.readFileSync(gusPath, "utf-8"));
-      if (gusParsed.ServerSettings?.ActiveMods) {
-        modIds = gusParsed.ServerSettings.ActiveMods.split(",")
+      const gusContent = fs.readFileSync(gusPath, "utf-8");
+      const gusParsed = ini.parse(gusContent);
+
+      // Look for ActiveMods under ServerSettings
+      const activeModsStr =
+        gusParsed.ServerSettings?.ActiveMods ||
+        gusParsed["ServerSettings"]?.activemods;
+      if (activeModsStr) {
+        modIds = activeModsStr
+          .split(",")
           .map((id) => id.trim())
           .filter(Boolean);
       }
     }
+
     if (modIds.length === 0 && fs.existsSync(gamePath)) {
       const gameParsed = ini.parse(fs.readFileSync(gamePath, "utf-8"));
       if (gameParsed.ModInstaller?.ModIDS) {
@@ -46,10 +52,11 @@ function linkServerMods(serverPath) {
       }
     }
   } catch (e) {
-    console.error("[WARN] Could not parse configs for mod linking:", e.message);
+    console.error("[Mods] ERROR parsing configs for mod linking:", e.message);
   }
 
-  // Link each mod folder and .mod file found in workshop cache
+  console.log(`[Mods] Found active mod IDs to link:`, modIds);
+
   for (const modId of modIds) {
     const sourceFolder = path.join(workshopDir, modId);
     const targetFolder = path.join(targetModsDir, modId);
@@ -58,17 +65,29 @@ function linkServerMods(serverPath) {
 
     try {
       if (fs.existsSync(sourceFolder)) {
-        if (fs.lstatSync(targetFolder).isSymbolicLink())
-          fs.unlinkSync(targetFolder);
+        if (
+          fs.existsSync(targetFolder) ||
+          fs.lstatSync(targetFolder, { throwIfMissing: false })
+        ) {
+          fs.rmSync(targetFolder, { recursive: true, force: true });
+        }
         fs.symlinkSync(sourceFolder, targetFolder, "dir");
+        console.log(`[Mods] Successfully linked mod folder: ${modId}`);
+      } else {
+        console.log(
+          `[Mods] Source folder for mod ${modId} not found in workshop cache.`,
+        );
       }
+
       if (fs.existsSync(sourceFile)) {
-        if (fs.lstatSync(targetFile).isSymbolicLink())
-          fs.unlinkSync(targetFile);
+        if (fs.existsSync(targetFile)) {
+          fs.rmSync(targetFile, { force: true });
+        }
         fs.symlinkSync(sourceFile, targetFile, "file");
+        console.log(`[Mods] Successfully linked mod file: ${modId}.mod`);
       }
     } catch (err) {
-      // Safe fallback if symlink already exists or throws error
+      console.error(`[Mods] Failed to link mod ${modId}:`, err.message);
     }
   }
 }
