@@ -62,6 +62,8 @@ function linkServerMods(serverPath, serverName = "server", workshopDir) {
   }
 
   console.log(`[Mods] Using workshop directory: ${resolvedWorkshopDir}`);
+  console.log(`[Mods] Target mods directory: ${targetModsDir}`);
+  console.log(`[Mods] Target mods directory exists: ${fs.existsSync(targetModsDir)}`);
 
   let entries;
   try {
@@ -70,6 +72,8 @@ function linkServerMods(serverPath, serverName = "server", workshopDir) {
     console.error(`[Mods] Failed to read workshop directory:`, err.message);
     return;
   }
+
+  console.log(`[Mods] Workshop entries: ${entries.map((entry) => entry.name).join(", ")}`);
 
   for (const entry of entries) {
     if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;

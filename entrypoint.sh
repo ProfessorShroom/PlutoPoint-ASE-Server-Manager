@@ -62,13 +62,17 @@ fi
 
 # Always ensure the Steam workshop content root exists on startup.
 WORKSHOP_DIR="$USER_HOME/Steam/steamapps/workshop/content/346110"
+echo "[entrypoint] workshop root: $WORKSHOP_DIR"
 mkdir -p "$WORKSHOP_DIR"
 chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
+
+echo "[entrypoint] runtime user home: $USER_HOME"
 
 # Link workshop mods into each configured server's mods directory when possible.
 # If no servers exist yet, create the expected fallback folder so the path is ready.
 mkdir -p /data
 if [ -f /data/servers.json ]; then
+    echo "[entrypoint] found servers.json"
     python3 - <<'PY' >/tmp/server_paths.txt
 import json, os
 p='/data/servers.json'
@@ -83,15 +87,19 @@ PY
 
     while IFS= read -r SERVER_ROOT; do
         [ -n "$SERVER_ROOT" ] || continue
+        echo "[entrypoint] processing server root: $SERVER_ROOT"
         SERVER_MODS_DIR="$SERVER_ROOT/ShooterGame/Content/Mods"
         mkdir -p "$SERVER_MODS_DIR"
         chown -R "$USER_ID:$GROUP_ID" "$SERVER_ROOT"
+        echo "[entrypoint] mods dir: $SERVER_MODS_DIR"
 
         if [ -d "$WORKSHOP_DIR" ]; then
+            echo "[entrypoint] workshop dir exists: $WORKSHOP_DIR"
             for mod_dir in "$WORKSHOP_DIR"/*; do
                 [ -d "$mod_dir" ] || continue
                 mod_name=$(basename "$mod_dir")
                 target_path="$SERVER_MODS_DIR/$mod_name"
+                echo "[entrypoint] linking mod dir $mod_name -> $target_path"
                 if [ -e "$target_path" ] || [ -L "$target_path" ]; then
                     rm -rf "$target_path"
                 fi
@@ -102,6 +110,7 @@ PY
                 [ -f "$mod_file" ] || continue
                 mod_file_name=$(basename "$mod_file")
                 target_path="$SERVER_MODS_DIR/$mod_file_name"
+                echo "[entrypoint] linking mod file $mod_file_name -> $target_path"
                 if [ -e "$target_path" ] || [ -L "$target_path" ]; then
                     rm -f "$target_path"
                 fi
