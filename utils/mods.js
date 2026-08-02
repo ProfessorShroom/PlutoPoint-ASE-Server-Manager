@@ -24,7 +24,21 @@ function resolveWorkshopDir(workshopDir) {
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
-function linkServerMods(serverPath, serverName = "server", workshopDir) {
+function copyDirectoryRecursive(sourceDir, targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+
+    if (entry.isDirectory()) {
+      copyDirectoryRecursive(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  }
+}
+
+function syncServerMods(serverPath, serverName = "server", workshopDir) {
   if (!serverPath) return;
 
   const absServerPath = path.resolve(serverPath);
@@ -79,10 +93,13 @@ function linkServerMods(serverPath, serverName = "server", workshopDir) {
     `[Mods] Workshop entries: ${entries.map((entry) => entry.name).join(", ")}`,
   );
 
+  const currentModIds = new Set();
+
   for (const entry of entries) {
     if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;
 
     const modId = entry.name;
+    currentModIds.add(modId);
     const sourceFolder = path.join(resolvedWorkshopDir, modId);
     const targetFolder = path.join(targetModsDir, modId);
     const sourceFile = path.join(resolvedWorkshopDir, `${modId}.mod`);
@@ -96,8 +113,8 @@ function linkServerMods(serverPath, serverName = "server", workshopDir) {
         ) {
           fs.rmSync(targetFolder, { recursive: true, force: true });
         }
-        fs.symlinkSync(sourceFolder, targetFolder, "dir");
-        console.log(`[Mods] Linked mod folder ${modId} into ${serverName}`);
+        copyDirectoryRecursive(sourceFolder, targetFolder);
+        console.log(`[Mods] Copied mod folder ${modId} into ${serverName}`);
       }
 
       if (fs.existsSync(sourceFile)) {
@@ -107,13 +124,52 @@ function linkServerMods(serverPath, serverName = "server", workshopDir) {
         ) {
           fs.rmSync(targetFile, { recursive: true, force: true });
         }
-        fs.symlinkSync(sourceFile, targetFile, "file");
-        console.log(`[Mods] Linked mod file ${modId}.mod into ${serverName}`);
+        fs.copyFileSync(sourceFile, targetFile);
+        console.log(`[Mods] Copied mod file ${modId}.mod into ${serverName}`);
       }
     } catch (err) {
-      console.error(`[Mods] Failed to link mod ${modId}:`, err.message);
+      console.error(`[Mods] Failed to sync mod ${modId}:`, err.message);
+    }
+  }
+
+  for (const existingEntry of fs.readdirSync(targetModsDir, {
+    withFileTypes: true,
+  })) {
+    if (!existingEntry.isDirectory() && !existingEntry.isFile()) continue;
+
+    const existingName = existingEntry.name;
+    if (!/^(\d+|\d+\.mod)$/.test(existingName)) continue;
+    if (!currentModIds.has(existingName.replace(/\.mod$/, ""))) {
+      const existingPath = path.join(targetModsDir, existingName);
+      fs.rmSync(existingPath, { recursive: true, force: true });
+      console.log(
+        `[Mods] Removed stale mod entry ${existingName} from ${serverName}`,
+      );
     }
   }
 }
 
-module.exports = { linkServerMods };
+async function syncServerModsWithRetries(
+  serverPath,
+  serverName = "server",
+  workshopDir,
+  options = {},
+) {
+  const { attempts = 4, retryDelayMs = 3000 } = options;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      syncServerMods(serverPath, serverName, workshopDir);
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    } catch (err) {
+      console.error(`[Mods] Sync attempt ${attempt} failed:`, err.message);
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+  }
+}
+
+module.exports = { syncServerMods, syncServerModsWithRetries };

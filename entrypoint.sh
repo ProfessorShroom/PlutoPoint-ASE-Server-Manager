@@ -68,7 +68,7 @@ chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
 
 echo "[entrypoint] runtime user home: $USER_HOME"
 
-# Link workshop mods into each configured server's mods directory when possible.
+# Reconcile workshop mods into each configured server's mods directory.
 # If no servers exist yet, create the expected fallback folder so the path is ready.
 mkdir -p /data
 if [ -f /data/servers.json ]; then
@@ -99,22 +99,30 @@ PY
                 [ -d "$mod_dir" ] || continue
                 mod_name=$(basename "$mod_dir")
                 target_path="$SERVER_MODS_DIR/$mod_name"
-                echo "[entrypoint] linking mod dir $mod_name -> $target_path"
-                if [ -e "$target_path" ] || [ -L "$target_path" ]; then
-                    rm -rf "$target_path"
-                fi
-                ln -s "$mod_dir" "$target_path"
+                echo "[entrypoint] copying mod dir $mod_name -> $target_path"
+                rm -rf "$target_path"
+                mkdir -p "$target_path"
+                cp -a "$mod_dir/." "$target_path/"
             done
 
             for mod_file in "$WORKSHOP_DIR"/*.mod; do
                 [ -f "$mod_file" ] || continue
                 mod_file_name=$(basename "$mod_file")
                 target_path="$SERVER_MODS_DIR/$mod_file_name"
-                echo "[entrypoint] linking mod file $mod_file_name -> $target_path"
-                if [ -e "$target_path" ] || [ -L "$target_path" ]; then
-                    rm -f "$target_path"
+                echo "[entrypoint] copying mod file $mod_file_name -> $target_path"
+                rm -f "$target_path"
+                cp -a "$mod_file" "$target_path"
+            done
+
+            for existing_entry in "$SERVER_MODS_DIR"/*; do
+                [ -e "$existing_entry" ] || continue
+                entry_name=$(basename "$existing_entry")
+                if [[ "$entry_name" =~ ^[0-9]+(\.mod)?$ ]]; then
+                    if [ ! -e "$WORKSHOP_DIR/$entry_name" ] && [ ! -e "$WORKSHOP_DIR/${entry_name%.mod}.mod" ]; then
+                        echo "[entrypoint] removing stale mod entry $entry_name"
+                        rm -rf "$existing_entry"
+                    fi
                 fi
-                ln -s "$mod_file" "$target_path"
             done
         fi
     done < /tmp/server_paths.txt

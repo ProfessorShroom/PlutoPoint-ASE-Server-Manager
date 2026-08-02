@@ -8,7 +8,7 @@ const {
   isAdmin,
   activeServers,
 } = require("../utils/helpers");
-const { linkServerMods } = require("../utils/mods");
+const { syncServerMods } = require("../utils/mods");
 
 router.get("/servers", isAuthenticated, (req, res) => {
   res.json(loadServers());
@@ -27,11 +27,11 @@ router.post("/servers", isAuthenticated, isAdmin, (req, res) => {
   saveServers(servers);
 
   try {
-    linkServerMods(serverPath, name);
-    console.log(`[INFO] Linked workshop mods for newly created server ${name}`);
+    syncServerMods(serverPath, name);
+    console.log(`[INFO] Synced workshop mods for newly created server ${name}`);
   } catch (err) {
     console.error(
-      `[WARN] Failed to link mods for new server ${name}: ${err.message}`,
+      `[WARN] Failed to sync mods for new server ${name}: ${err.message}`,
     );
   }
 

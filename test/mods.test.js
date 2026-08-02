@@ -3,9 +3,9 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { linkServerMods } = require("../utils/mods");
+const { syncServerMods } = require("../utils/mods");
 
-test("linkServerMods creates server-side mod links from workshop content", () => {
+test("syncServerMods creates server-side mod copies from workshop content", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-test-"));
   const serverPath = path.join(tempRoot, "server-one");
   const workshopRoot = path.join(tempRoot, "workshop", "346110");
@@ -20,7 +20,7 @@ test("linkServerMods creates server-side mod links from workshop content", () =>
   fs.writeFileSync(path.join(workshopRoot, "67890", "mod.info"), "world");
   fs.writeFileSync(path.join(workshopRoot, "12345.mod"), "mod file");
 
-  linkServerMods(serverPath, "server-one", workshopRoot);
+  syncServerMods(serverPath, "server-one", workshopRoot);
 
   const linkedDir = path.join(targetModsDir, "12345");
   const linkedModFile = path.join(targetModsDir, "12345.mod");
@@ -34,16 +34,16 @@ test("linkServerMods creates server-side mod links from workshop content", () =>
     "expected .mod file to exist in server mods folder",
   );
   assert.ok(
-    fs.lstatSync(linkedDir).isSymbolicLink(),
-    "expected mod directory to be a symlink",
+    fs.lstatSync(linkedDir).isDirectory(),
+    "expected mod directory to be copied into the server mods folder",
   );
   assert.ok(
-    fs.lstatSync(linkedModFile).isSymbolicLink(),
-    "expected .mod file to be a symlink",
+    fs.existsSync(linkedModFile),
+    "expected .mod file to be copied into the server mods folder",
   );
 });
 
-test("linkServerMods resolves workshop content from the current home directory", () => {
+test("syncServerMods resolves workshop content from the current home directory", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-home-test-"));
   const serverPath = path.join(tempRoot, "server-two");
   const workshopRoot = path.join(
@@ -67,7 +67,7 @@ test("linkServerMods resolves workshop content from the current home directory",
   process.env.HOME = tempRoot;
 
   try {
-    linkServerMods(serverPath, "server-two");
+    syncServerMods(serverPath, "server-two");
   } finally {
     if (originalHome === undefined) delete process.env.HOME;
     else process.env.HOME = originalHome;
@@ -75,6 +75,40 @@ test("linkServerMods resolves workshop content from the current home directory",
 
   assert.ok(
     fs.existsSync(path.join(targetModsDir, "99999")),
-    "expected workshop mods to be linked from the home-based Steam path",
+    "expected workshop mods to be copied from the home-based Steam path",
+  );
+});
+
+test("syncServerModsWithRetries copies mods that appear after the first attempt", async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mods-retry-test-"));
+  const serverPath = path.join(tempRoot, "server-three");
+  const workshopRoot = path.join(tempRoot, "workshop", "346110");
+  const targetModsDir = path.join(serverPath, "ShooterGame", "Content", "Mods");
+
+  fs.mkdirSync(targetModsDir, { recursive: true });
+  fs.mkdirSync(path.join(workshopRoot, "11111"), { recursive: true });
+  fs.writeFileSync(path.join(workshopRoot, "11111", "mod.info"), "hello");
+
+  const { syncServerModsWithRetries } = require("../utils/mods");
+
+  const syncPromise = syncServerModsWithRetries(
+    serverPath,
+    "server-three",
+    workshopRoot,
+    {
+      attempts: 3,
+      retryDelayMs: 25,
+    },
+  );
+
+  setTimeout(() => {
+    fs.writeFileSync(path.join(workshopRoot, "11111.mod"), "mod file");
+  }, 20);
+
+  await syncPromise;
+
+  assert.ok(
+    fs.existsSync(path.join(targetModsDir, "11111.mod")),
+    "expected mod file to be copied after a later retry",
   );
 });

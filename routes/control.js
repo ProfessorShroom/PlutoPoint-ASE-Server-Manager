@@ -12,22 +12,18 @@ const {
   activeServers,
   serverLogs,
 } = require("../utils/helpers");
-const { linkServerMods } = require("../utils/mods"); // <-- Added import
+const { syncServerModsWithRetries } = require("../utils/mods");
 
-function syncServerMods(server, logFn = console.log) {
-  const attemptLink = (attempt) => {
-    try {
-      linkServerMods(server.path, server.name);
-      logFn(
-        `[INFO] Successfully synchronized mod symlinks for ${server.name} (attempt ${attempt})`,
-      );
-    } catch (err) {
-      logFn(`[WARN] Failed to link mods on attempt ${attempt}: ${err.message}`);
-    }
-  };
-
-  attemptLink(1);
-  setTimeout(() => attemptLink(2), 3000);
+async function syncServerMods(server, logFn = console.log) {
+  try {
+    await syncServerModsWithRetries(server.path, server.name, undefined, {
+      attempts: 4,
+      retryDelayMs: 3000,
+    });
+    logFn(`[INFO] Successfully synchronized workshop mods for ${server.name}`);
+  } catch (err) {
+    logFn(`[WARN] Failed to sync mods for ${server.name}: ${err.message}`);
+  }
 }
 
 router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
