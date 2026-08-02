@@ -10,24 +10,40 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed to check git history for version changes
 
-      # Automatically read the version from package.json and determine target tag channel
-      - name: Extract version from package.json
+      - name: Evaluate version and stability channels
         id: version
         run: |
           VERSION=$(jq -r .version package.json) 
           echo "version=$VERSION" >> $GITHUB_OUTPUT 
 
-          # Check if version contains 'b'
+          # Calculate how many days ago package.json was last modified
+          LAST_CHANGE_DATE=$(git log -1 --format="%ct" -- package.json)
+          CURRENT_DATE=$(date +%s)
+          DIFF_SECONDS=$((CURRENT_DATE - LAST_CHANGE_DATE))
+          AGE_IN_DAYS=$((DIFF_SECONDS / 86400))
+          echo "Version $VERSION has been unchanged for $AGE_IN_DAYS days."
+
+          STABILITY_THRESHOLD=7
+
+          # Determine base channel (beta or latest)
           if [[ "$VERSION" == *b* ]]; then
             echo "channel=beta" >> $GITHUB_OUTPUT
-            echo "Detected beta version: $VERSION -> tagging as :beta"
+            echo "Detected beta version -> tagging as :beta"
           else
             echo "channel=latest" >> $GITHUB_OUTPUT
-            echo "Detected stable version: $VERSION -> tagging as :latest"
+            echo "Detected standard version -> tagging as :latest"
           fi
 
-          echo "Extracted version: $VERSION"
+          # Set a flag if the version has been unchanged for 7+ days
+          if [ "$AGE_IN_DAYS" -ge "$STABILITY_THRESHOLD" ]; then
+            echo "is_stable=true" >> $GITHUB_OUTPUT
+            echo "Notice: Version has been unchanged for >= $STABILITY_THRESHOLD days. Enabling :stable tag!"
+          else
+            echo "is_stable=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -44,13 +60,17 @@ jobs:
         with:
           images: professorshroom/plutopoint-ase-server-manager
           tags: |
-            type=raw,value=${{ steps.version.outputs.channel }} 
+            type=raw,value=${{ steps.version.outputs.channel }}
+            type=raw,value=stable,enable=${{ steps.version.outputs.is_stable }}
             type=raw,value=${{ steps.version.outputs.version }}
+            type=sha,format=short
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
