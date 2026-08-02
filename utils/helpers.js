@@ -5,20 +5,27 @@ const { exec } = require("child_process");
 const crypto = require("crypto");
 
 function resolveWriteableDir(defaultDir, fallbackDir) {
-  try {
-    if (!fs.existsSync(defaultDir))
-      fs.mkdirSync(defaultDir, { recursive: true });
-    if (fs.statSync(defaultDir).isDirectory()) {
-      fs.accessSync(defaultDir, fs.constants.W_OK);
-      return defaultDir;
+  const candidates = [
+    defaultDir,
+    fallbackDir,
+    path.join(os.tmpdir(), "plutopoint-ase-server-manager"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) {
+        fs.mkdirSync(candidate, { recursive: true });
+      }
+      if (fs.statSync(candidate).isDirectory()) {
+        fs.accessSync(candidate, fs.constants.W_OK);
+        return candidate;
+      }
+    } catch (error) {
+      // Try the next candidate when the current path is not writable.
     }
-  } catch (error) {
-    // Fall back to a user-writable directory when the default path is not accessible.
   }
 
-  if (!fs.existsSync(fallbackDir))
-    fs.mkdirSync(fallbackDir, { recursive: true });
-  return fallbackDir;
+  return candidates[candidates.length - 1];
 }
 
 const DATA_DIR = resolveWriteableDir(
