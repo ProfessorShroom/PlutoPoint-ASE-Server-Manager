@@ -33,8 +33,12 @@ fi
 USER_HOME=$(getent passwd "$USER_NAME" | cut -d: -f6)
 mkdir -p "$USER_HOME/.steam/sdk64"
 
-if [ -f /opt/steamcmd/linux64/steamclient.so ]; then
-    ln -sf /opt/steamcmd/linux64/steamclient.so "$USER_HOME/.steam/sdk64/steamclient.so"
+if [ -f /usr/games/steamcmd ]; then
+    ln -sf /usr/games/steamcmd "$USER_HOME/.steam/sdk64/steamcmd"
+fi
+
+if [ -f /usr/lib/steamcmd/steamclient.so ]; then
+    ln -sf /usr/lib/steamcmd/steamclient.so "$USER_HOME/.steam/sdk64/steamclient.so"
 fi
 
 # Fix ownership of your app/data directories so the new user can read/write them
@@ -47,12 +51,11 @@ if [ -d "$USER_HOME/.steam" ]; then
 fi
 
 # Ensure SteamCMD is writable and executable for the runtime user
-if [ -d /opt/steamcmd ]; then
-  chown -R "$USER_ID:$GROUP_ID" /opt/steamcmd
+if [ -d /usr/games ]; then
+  chown -R "$USER_ID:$GROUP_ID" /usr/games
 fi
-if [ -f /opt/steamcmd/steamcmd.sh ]; then chmod +x /opt/steamcmd/steamcmd.sh; fi
-if [ -f /opt/steamcmd/linux32/steamcmd ]; then chmod +x /opt/steamcmd/linux32/steamcmd; fi
-if [ -f /opt/steamcmd/linux64/steamcmd ]; then chmod +x /opt/steamcmd/linux64/steamcmd; fi
+if [ -f /usr/games/steamcmd ]; then chmod +x /usr/games/steamcmd; fi
+if [ -f /usr/games/steamcmd.sh ]; then chmod +x /usr/games/steamcmd.sh; fi
 
 # Ensure permissions on home directory .steam path
 chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"

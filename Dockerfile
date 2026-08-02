@@ -24,14 +24,13 @@ RUN apt-get update \
     gosu \
  && rm -rf /var/lib/apt/lists/*
 
-# Install SteamCMD from Valve's official tarball (and initialize 64-bit binaries)
-RUN mkdir -p /opt/steamcmd \
- && curl -fsSL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" \
-    | tar -C /opt/steamcmd -xz \
- && chmod +x /opt/steamcmd/steamcmd.sh \
- && /opt/steamcmd/steamcmd.sh +quit \
- && printf '#!/bin/sh\nexec /opt/steamcmd/steamcmd.sh "$@"\n' > /usr/local/bin/steamcmd \
- && chmod +x /usr/local/bin/steamcmd
+# Install SteamCMD from the distro package repository so the runtime uses the standard Linux path.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends steamcmd \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/games/steamcmd /usr/local/bin/steamcmd \
+ && chmod +x /usr/games/steamcmd \
+ && /usr/games/steamcmd +quit
 
 # Install Node.js (v20 LTS) and keep image small
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \

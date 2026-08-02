@@ -157,9 +157,11 @@ async function downloadWorkshopMods(
 
   const steamcmdCandidates = [
     process.env.STEAMCMD_PATH,
-    "/opt/steamcmd/steamcmd.sh",
-    "/usr/local/bin/steamcmd",
     "/usr/games/steamcmd",
+    "/usr/games/steamcmd.sh",
+    "/usr/local/bin/steamcmd",
+    "/opt/steamcmd/steamcmd.sh",
+    "/opt/steamcmd/steamcmd",
   ].filter(Boolean);
 
   const steamcmdPath = steamcmdCandidates.find((candidate) => {
