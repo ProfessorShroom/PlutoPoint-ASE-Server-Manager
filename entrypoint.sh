@@ -52,5 +52,13 @@ if [ -f /opt/steamcmd/steamcmd.sh ]; then chmod +x /opt/steamcmd/steamcmd.sh; fi
 if [ -f /opt/steamcmd/linux32/steamcmd ]; then chmod +x /opt/steamcmd/linux32/steamcmd; fi
 if [ -f /opt/steamcmd/linux64/steamcmd ]; then chmod +x /opt/steamcmd/linux64/steamcmd; fi
 
+# Ensure permissions on home directory .steam path
+chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"
+
+# Ensure Steam workshop content is owned/readable by the runtime user
+if [ -d "$USER_HOME/Steam" ]; then
+    chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
+fi
+
 # Drop root privileges and execute the main container command using gosu
 exec gosu "$USER_NAME" "$@"
