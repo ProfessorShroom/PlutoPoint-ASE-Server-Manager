@@ -29,6 +29,17 @@ if ! id -u "$USER_NAME" > /dev/null 2>&1; then
     exit 1
 fi
 
+# Fix Steam 64-bit SDK location for ARK
+USER_HOME=$(getent passwd "$USER_NAME" | cut -d: -f6)
+mkdir -p "$USER_HOME/.steam/sdk64"
+
+if [ -f /opt/steamcmd/linux64/steamclient.so ]; then
+    ln -sf /opt/steamcmd/linux64/steamclient.so "$USER_HOME/.steam/sdk64/steamclient.so"
+fi
+
+# Ensure permissions on home directory .steam path
+chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/.steam"
+
 # Fix ownership of your app/data directories so the new user can read/write them
 # (Adjust /data and /backup to match your container's volume paths)
 mkdir -p /data /backup /app

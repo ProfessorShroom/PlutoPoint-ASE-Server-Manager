@@ -23,11 +23,12 @@ RUN apt-get update \
     gosu \
  && rm -rf /var/lib/apt/lists/*
 
-# Install SteamCMD from Valve's official tarball (non-interactive)
+# Install SteamCMD from Valve's official tarball (and initialize 64-bit binaries)
 RUN mkdir -p /opt/steamcmd \
  && curl -fsSL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" \
     | tar -C /opt/steamcmd -xz \
  && chmod +x /opt/steamcmd/steamcmd.sh \
+ && /opt/steamcmd/steamcmd.sh +quit \
  && printf '#!/bin/sh\nexec /opt/steamcmd/steamcmd.sh "$@"\n' > /usr/local/bin/steamcmd \
  && chmod +x /usr/local/bin/steamcmd
 
