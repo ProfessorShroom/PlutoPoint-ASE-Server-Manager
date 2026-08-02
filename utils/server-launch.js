@@ -169,8 +169,8 @@ function launchServerProcess(server, options = {}) {
   setTimeout(async () => {
     try {
       await syncServerModsWithRetries(server.path, server.name, undefined, {
-        attempts: 8,
-        retryDelayMs: 15000,
+        attempts: 2,
+        retryDelayMs: 1000,
       });
       logger(`[Mods] Synced workshop content before launching ${server.name}`);
 
@@ -241,4 +241,9 @@ function launchServerProcess(server, options = {}) {
   return { ok: true };
 }
 
-module.exports = { buildStartupArgs, launchServerProcess, getRuntimeEnv };
+module.exports = {
+  buildStartupArgs,
+  launchServerProcess,
+  getRuntimeEnv,
+  prepareSteamRuntime,
+};

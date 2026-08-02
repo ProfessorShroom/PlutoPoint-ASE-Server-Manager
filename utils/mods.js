@@ -362,7 +362,7 @@ async function syncServerModsWithRetries(
   workshopDir,
   options = {},
 ) {
-  const { attempts = 10, retryDelayMs = 30000, logger = console.log } = options;
+  const { attempts = 2, retryDelayMs = 1000, logger = console.log } = options;
 
   let syncWorkshopDir = workshopDir;
 

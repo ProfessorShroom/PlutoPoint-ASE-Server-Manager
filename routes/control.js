@@ -21,8 +21,8 @@ const {
 async function syncServerMods(server, logFn = console.log) {
   try {
     await syncServerModsWithRetries(server.path, server.name, undefined, {
-      attempts: 8,
-      retryDelayMs: 15000,
+      attempts: 2,
+      retryDelayMs: 1000,
     });
     logFn(`[INFO] Successfully synchronized workshop mods for ${server.name}`);
   } catch (err) {
@@ -213,22 +213,6 @@ router.post(
       console.error(`[WARN] Failed to sync mods before launch: ${err.message}`);
     }
 
-    try {
-      const { runtimeDir, env } = prepareSteamRuntime(server.path);
-      if (runtimeDir) {
-        console.log(
-          `[INFO] Prepared Steam runtime at ${runtimeDir} for ${server.name}`,
-        );
-      } else {
-        console.log(
-          `[WARN] No Steam runtime library was found for ${server.name}`,
-        );
-      }
-      const runtimeEnv = env;
-    } catch (err) {
-      console.error(`[WARN] Failed to prepare Steam runtime: ${err.message}`);
-    }
-
     const { launchArgs, serverArgs } = buildStartupArgs(
       server.path,
       server.name,
@@ -352,21 +336,6 @@ router.post(
         console.error(
           `[WARN] Failed to sync mods before restart: ${err.message}`,
         );
-      }
-
-      try {
-        const { runtimeDir } = prepareSteamRuntime(server.path);
-        if (runtimeDir) {
-          console.log(
-            `[INFO] Prepared Steam runtime at ${runtimeDir} for ${server.name}`,
-          );
-        } else {
-          console.log(
-            `[WARN] No Steam runtime library was found for ${server.name}`,
-          );
-        }
-      } catch (err) {
-        console.error(`[WARN] Failed to prepare Steam runtime: ${err.message}`);
       }
 
       const { launchArgs, serverArgs } = buildStartupArgs(
