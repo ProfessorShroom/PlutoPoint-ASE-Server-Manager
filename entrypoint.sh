@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# 1. Catch user and group IDs from environment variables (default to 1000 if blank)
+# Catch user and group IDs from environment variables (default to 1000 if blank)
 USER_ID=${PUID:-1000}
 GROUP_ID=${PGID:-1000}
 
 echo "Starting container with UID: $USER_ID and GID: $GROUP_ID"
 
-# 2. Create a user/group dynamically if they don't already exist
+# Create a user/group dynamically if they don't already exist
 if getent group "$GROUP_ID" > /dev/null 2>&1; then
     GROUP_NAME=$(getent group "$GROUP_ID" | cut -d: -f1)
 else
@@ -29,12 +29,12 @@ if ! id -u "$USER_NAME" > /dev/null 2>&1; then
     exit 1
 fi
 
-# 3. Fix ownership of your app/data directories so the new user can read/write them
+# Fix ownership of your app/data directories so the new user can read/write them
 # (Adjust /data and /backup to match your container's volume paths)
 mkdir -p /data /backup /app
 chown -R "$USER_ID:$GROUP_ID" /data /backup /app
 
-# 4. Ensure SteamCMD is writable and executable for the runtime user
+# Ensure SteamCMD is writable and executable for the runtime user
 if [ -d /opt/steamcmd ]; then
   chown -R "$USER_ID:$GROUP_ID" /opt/steamcmd
 fi
@@ -45,15 +45,17 @@ if [ -f /opt/steamcmd/linux64/steamcmd ]; then chmod +x /opt/steamcmd/linux64/st
 # Fix ARK's SteamCMD dependency for automanagedmods
 echo "Creating SteamCMD symlink for ARK automanagedmods..."
 
-# 1. Create the path where ARK expects to find SteamCMD inside your /data volume
+# Create the parent directory structure
 mkdir -p /data/Engine/Binaries/ThirdParty/SteamCMD
 
-# 2. Symlink your actual SteamCMD installation (/opt/steamcmd) to ARK's 'Linux' directory
-ln -sf /opt/steamcmd /data/Engine/Binaries/ThirdParty/SteamCMD/Linux
+# Erase the 'Linux' folder if ARK previously generated it
+rm -rf /data/Engine/Binaries/ThirdParty/SteamCMD/Linux
 
-# 3. Ensure the newly created directory structure is owned by your dynamically created appuser
-chown -R "$USER_ID:$GROUP_ID" /data/Engine
-# --> NEW ADDITION ENDS HERE <--
+# Create the symlink exactly where ARK expects it
+ln -s /opt/steamcmd /data/Engine/Binaries/ThirdParty/SteamCMD/Linux
 
-# 5. Drop root privileges and execute the main container command using gosu
+# Fix permissions for the newly created path
+chown -R "$USER_ID:$GROUP_ID" /data/Engine/Binaries/ThirdParty/SteamCMD
+
+# Drop root privileges and execute the main container command using gosu
 exec gosu "$USER_NAME" "$@"
