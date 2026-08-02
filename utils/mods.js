@@ -18,6 +18,8 @@ function resolveWorkshopDir(workshopDir) {
   addCandidate("/home/ubuntu/steamapps/workshop/content/346110");
   addCandidate("/root/Steam/steamapps/workshop/content/346110");
   addCandidate("/root/steamapps/workshop/content/346110");
+  addCandidate("/home/appuser/Steam/steamapps/workshop/content/346110");
+  addCandidate("/home/appuser/steamapps/workshop/content/346110");
 
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
@@ -33,6 +35,10 @@ function linkServerMods(serverPath, serverName = "server", workshopDir) {
     "Mods",
   );
   const resolvedWorkshopDir = resolveWorkshopDir(workshopDir);
+
+  if (!fs.existsSync(absServerPath)) {
+    fs.mkdirSync(absServerPath, { recursive: true });
+  }
 
   console.log(
     `[Mods] Synchronizing workshop mods for server: ${serverName} (${path.basename(absServerPath)})`,

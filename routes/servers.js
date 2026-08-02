@@ -8,6 +8,7 @@ const {
   isAdmin,
   activeServers,
 } = require("../utils/helpers");
+const { linkServerMods } = require("../utils/mods");
 
 router.get("/servers", isAuthenticated, (req, res) => {
   res.json(loadServers());
@@ -24,6 +25,16 @@ router.post("/servers", isAuthenticated, isAdmin, (req, res) => {
 
   servers.push({ id, name, path: serverPath, autoStart: !!autoStart });
   saveServers(servers);
+
+  try {
+    linkServerMods(serverPath, name);
+    console.log(`[INFO] Linked workshop mods for newly created server ${name}`);
+  } catch (err) {
+    console.error(
+      `[WARN] Failed to link mods for new server ${name}: ${err.message}`,
+    );
+  }
+
   res.json({ message: "Server added successfully!" });
 });
 

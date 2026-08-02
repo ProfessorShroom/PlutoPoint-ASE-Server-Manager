@@ -60,5 +60,49 @@ if [ -d "$USER_HOME/Steam" ]; then
     chown -R "$USER_ID:$GROUP_ID" "$USER_HOME/Steam"
 fi
 
+# Link workshop mods into any configured server locations if the workshop content exists.
+# This handles fresh installs where the server directories may not exist yet.
+WORKSHOP_DIR="$USER_HOME/Steam/steamapps/workshop/content/346110"
+
+if [ -d "$WORKSHOP_DIR" ]; then
+    if [ -f /data/servers.json ]; then
+        python3 - <<'PY' >/tmp/servers_paths.txt
+import json, os
+p='/data/servers.json'
+if os.path.exists(p):
+    with open(p) as fh:
+        data=json.load(fh)
+    for s in data:
+        if s.get('path'):
+            print(s['path'])
+PY
+        while IFS= read -r SERVER_ROOT; do
+            [ -n "$SERVER_ROOT" ] || continue
+            SERVER_MODS_DIR="$SERVER_ROOT/ShooterGame/Content/Mods"
+            mkdir -p "$SERVER_MODS_DIR"
+            chown -R "$USER_ID:$GROUP_ID" "$SERVER_ROOT"
+            for mod_dir in "$WORKSHOP_DIR"/*; do
+                [ -d "$mod_dir" ] || continue
+                mod_name=$(basename "$mod_dir")
+                target_path="$SERVER_MODS_DIR/$mod_name"
+                if [ -e "$target_path" ] || [ -L "$target_path" ]; then
+                    rm -rf "$target_path"
+                fi
+                ln -s "$mod_dir" "$target_path"
+            done
+            for mod_file in "$WORKSHOP_DIR"/*.mod; do
+                [ -f "$mod_file" ] || continue
+                mod_file_name=$(basename "$mod_file")
+                target_path="$SERVER_MODS_DIR/$mod_file_name"
+                if [ -e "$target_path" ] || [ -L "$target_path" ]; then
+                    rm -f "$target_path"
+                fi
+                ln -s "$mod_file" "$target_path"
+            done
+        done < /tmp/servers_paths.txt
+        rm -f /tmp/servers_paths.txt
+    fi
+fi
+
 # Drop root privileges and execute the main container command using gosu
 exec gosu "$USER_NAME" "$@"
