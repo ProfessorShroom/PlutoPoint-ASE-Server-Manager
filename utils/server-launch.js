@@ -3,6 +3,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const ini = require("ini");
 const { activeServers, serverLogs } = require("./helpers");
+const { syncServerModsWithRetries } = require("./mods");
 
 function parseIniFile(filePath) {
   try {
@@ -100,8 +101,14 @@ function launchServerProcess(server, options = {}) {
     return { ok: false, error: "Server binary files not found." };
   }
 
-  setTimeout(() => {
+  setTimeout(async () => {
     try {
+      await syncServerModsWithRetries(server.path, server.name, undefined, {
+        attempts: 8,
+        retryDelayMs: 15000,
+      });
+      logger(`[Mods] Synced workshop content before launching ${server.name}`);
+
       const { launchArgs, serverArgs, mapName, sessionName, modIds } =
         buildStartupArgs(server.path, server.name);
       const formattedArgs = serverArgs

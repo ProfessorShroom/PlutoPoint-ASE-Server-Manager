@@ -17,8 +17,8 @@ const { buildStartupArgs } = require("../utils/server-launch");
 async function syncServerMods(server, logFn = console.log) {
   try {
     await syncServerModsWithRetries(server.path, server.name, undefined, {
-      attempts: 10,
-      retryDelayMs: 30000,
+      attempts: 8,
+      retryDelayMs: 15000,
     });
     logFn(`[INFO] Successfully synchronized workshop mods for ${server.name}`);
   } catch (err) {
@@ -184,7 +184,7 @@ router.post(
   "/control/:serverId/start",
   isAuthenticated,
   isAdmin,
-  (req, res) => {
+  async (req, res) => {
     const servers = loadServers();
     const server = servers.find((s) => s.id === req.params.serverId);
     if (!server) return res.status(404).json({ error: "Server not found" });
@@ -201,10 +201,11 @@ router.post(
     if (!fs.existsSync(shooterGameBin))
       return res.status(400).json({ error: "Server binary files not found." });
 
-    // Sync workshop mods only after the server has had a chance to finish downloading them.
-    setTimeout(() => {
-      void syncServerMods(server, (message) => console.log(message));
-    }, 30000);
+    try {
+      await syncServerMods(server, (message) => console.log(message));
+    } catch (err) {
+      console.error(`[WARN] Failed to sync mods before launch: ${err.message}`);
+    }
 
     try {
       const absServerPath = path.resolve(server.path);
@@ -319,7 +320,7 @@ router.post(
   "/control/:serverId/restart",
   isAuthenticated,
   isAdmin,
-  (req, res) => {
+  async (req, res) => {
     const servers = loadServers();
     const server = servers.find((s) => s.id === req.params.serverId);
     if (!server) return res.status(404).json({ error: "Server not found" });
@@ -336,7 +337,7 @@ router.post(
     if (serverLogs[server.id])
       serverLogs[server.id].push("\n[Restarting server...]\n");
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const shooterGameBin = path.join(
         server.path,
         "ShooterGame",
@@ -346,10 +347,13 @@ router.post(
       );
       if (!fs.existsSync(shooterGameBin)) return;
 
-      // Sync workshop mods only after the server has had a chance to finish downloading them.
-      setTimeout(() => {
-        void syncServerMods(server, (message) => console.log(message));
-      }, 30000);
+      try {
+        await syncServerMods(server, (message) => console.log(message));
+      } catch (err) {
+        console.error(
+          `[WARN] Failed to sync mods before restart: ${err.message}`,
+        );
+      }
 
       try {
         const absServerPath = path.resolve(server.path);
