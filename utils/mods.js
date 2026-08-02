@@ -100,21 +100,27 @@ function syncServerMods(serverPath, serverName = "server", workshopDir) {
 
     try {
       if (entry.isDirectory()) {
-        if (fs.existsSync(targetPath)) {
-          fs.rmSync(targetPath, { recursive: true, force: true });
+        if (!fs.existsSync(targetPath)) {
+          copyDirectoryRecursive(sourcePath, targetPath);
+          console.log(
+            `[ModsDebug] Copied workshop directory ${entryName} -> ${targetPath}`,
+          );
+        } else {
+          console.log(
+            `[ModsDebug] Skipping workshop directory ${entryName}; target already exists at ${targetPath}`,
+          );
         }
-        copyDirectoryRecursive(sourcePath, targetPath);
-        console.log(
-          `[ModsDebug] Copied workshop directory ${entryName} -> ${targetPath}`,
-        );
       } else if (entry.isFile()) {
-        if (fs.existsSync(targetPath)) {
-          fs.rmSync(targetPath, { recursive: true, force: true });
+        if (!fs.existsSync(targetPath)) {
+          fs.copyFileSync(sourcePath, targetPath);
+          console.log(
+            `[ModsDebug] Copied workshop file ${entryName} -> ${targetPath}`,
+          );
+        } else {
+          console.log(
+            `[ModsDebug] Skipping workshop file ${entryName}; target already exists at ${targetPath}`,
+          );
         }
-        fs.copyFileSync(sourcePath, targetPath);
-        console.log(
-          `[ModsDebug] Copied workshop file ${entryName} -> ${targetPath}`,
-        );
       }
     } catch (err) {
       console.error(
