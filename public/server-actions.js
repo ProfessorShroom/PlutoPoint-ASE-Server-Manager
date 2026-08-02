@@ -1,90 +1,17 @@
-async function saveSettings(e) {
-  e.preventDefault();
+async function toggleAutoStart(autoStart) {
   if (!currentServerId) return;
-
-  const inputs = document.querySelectorAll(
-    "#settings-form input, #settings-form select",
-  );
-  const payload = {};
-
-  inputs.forEach((i) => {
-    if (i.id.startsWith("cfg-")) {
-      const key = i.id.replace("cfg-", "");
-      if (i.type === "checkbox") payload[key] = i.checked;
-      else payload[key] = i.value;
-    }
+  const res = await fetch(`/api/control/${currentServerId}/autostart`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ autoStart }),
   });
 
-  // 1. Gather NPC Replacements
-  payload.npcReplacements = [];
-  document
-    .querySelectorAll("#npc-replacements-container > div")
-    .forEach((row) => {
-      const from = row.querySelector(".npc-from").value;
-      const to = row.querySelector(".npc-to").value;
-      payload.npcReplacements.push({ from, to });
-    });
-
-  // 2. Gather Engram Entries
-  payload.engramEntries = [];
-  document
-    .querySelectorAll("#engram-entries-container > div")
-    .forEach((row) => {
-      payload.engramEntries.push({
-        className: row.querySelector(".engram-class").value,
-        level: row.querySelector(".engram-level").value,
-        points: row.querySelector(".engram-points").value,
-        hidden: row.querySelector(".engram-hidden").checked,
-        removePreReq: row.querySelector(".engram-prereq").checked,
-      });
-    });
-
-  // 3. Gather Crafting Costs
-  payload.craftingCosts = [];
-  document
-    .querySelectorAll("#crafting-costs-container > div")
-    .forEach((card) => {
-      const itemClass = card.querySelector(".craft-item-class").value;
-      const resources = [];
-      card.querySelectorAll(".resource-row").forEach((resRow) => {
-        resources.push({
-          type: resRow.querySelector(".res-type").value,
-          amount: resRow.querySelector(".res-amount").value,
-        });
-      });
-      if (itemClass) {
-        payload.craftingCosts.push({ itemClass, resources });
-      }
-    });
-
-  // 4. Send a single unified request safely
-  try {
-    const response = await fetch(`/api/settings/${currentServerId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-
-    if (response.ok) {
-      alert(result.message || "Settings saved successfully!");
-
-      // Instantly update the sidebar name if it was changed
-      const newName = document.getElementById("cfg-sessionName").value;
-      if (newName) {
-        const sidebarElement =
-          document.querySelector(`[data-server-id="${currentServerId}"]`) ||
-          document.getElementById(`server-nav-${currentServerId}`);
-        if (sidebarElement) {
-          sidebarElement.textContent = newName;
-        }
-      }
-    } else {
-      alert(result.error || "Failed to save settings.");
-    }
-  } catch (err) {
-    console.error("Error saving settings:", err);
-    alert("An error occurred while saving settings.");
+  if (res.ok) {
+    const server = serversList.find((s) => s.id === currentServerId);
+    if (server) server.autoStart = autoStart;
+  } else {
+    const data = await res.json();
+    alert(data.error);
   }
 }
 
@@ -139,7 +66,8 @@ async function installServer() {
       }
     }
   } catch (error) {
-    logOutput.innerText += `\nERROR: Failed to connect to installation stream.\n`;
+    logOutput.innerText +=
+      "\nERROR: Failed to connect to installation stream.\n";
     btnInstall.disabled = false;
     btnInstall.classList.remove("opacity-50", "cursor-not-allowed");
   }
@@ -207,14 +135,3 @@ function switchTab(tab) {
   const btn = document.querySelector(`[data-tab="${tab}"]`);
   if (btn) btn.classList.add("text-cyan-400", "font-bold");
 }
-
-checkAuth();
-
-setInterval(() => {
-  if (
-    !document.getElementById("app-view").classList.contains("hidden") &&
-    currentServerId
-  ) {
-    loadDashboardData();
-  }
-}, 3000);
