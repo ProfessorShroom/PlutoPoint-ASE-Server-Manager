@@ -12,6 +12,7 @@ const {
   activeServers,
   serverLogs,
 } = require("../utils/helpers");
+const { linkServerMods } = require("../utils/mods"); // <-- Added import
 
 router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
   const servers = loadServers();
@@ -100,6 +101,17 @@ router.post("/install/:serverId", isAuthenticated, isAdmin, (req, res) => {
   steamcmd.stderr.on("data", (data) => sendLog(`ERROR: ${data.toString()}`));
   steamcmd.on("close", (code) => {
     sendLog(`\nSteamCMD process exited with code ${code}.`);
+
+    // Link mods right after installation finishes successfully
+    if (code === 0) {
+      try {
+        linkServerMods(server.path);
+        sendLog(`[INFO] Automatically checked and linked server mods.\n`);
+      } catch (err) {
+        sendLog(`[WARN] Failed to link mods: ${err.message}\n`);
+      }
+    }
+
     res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
     res.end();
   });
@@ -157,6 +169,16 @@ router.post(
     );
     if (!fs.existsSync(shooterGameBin))
       return res.status(400).json({ error: "Server binary files not found." });
+
+    // Link mods dynamically before starting the server process
+    try {
+      linkServerMods(server.path);
+      console.log(
+        `[INFO] Successfully synchronized mod symlinks for ${server.name}`,
+      );
+    } catch (err) {
+      console.error(`[WARN] Failed to link mods on start: ${err.message}`);
+    }
 
     try {
       const absServerPath = path.resolve(server.path);
@@ -311,6 +333,16 @@ router.post(
         "ShooterGameServer",
       );
       if (!fs.existsSync(shooterGameBin)) return;
+
+      // Link mods dynamically before restarting server binary
+      try {
+        linkServerMods(server.path);
+        console.log(
+          `[INFO] Successfully synchronized mod symlinks for ${server.name}`,
+        );
+      } catch (err) {
+        console.error(`[WARN] Failed to link mods on restart: ${err.message}`);
+      }
 
       try {
         const absServerPath = path.resolve(server.path);
