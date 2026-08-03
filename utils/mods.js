@@ -185,6 +185,8 @@ async function downloadWorkshopMods(
   fs.mkdirSync(steamTmp, { recursive: true });
 
   const steamcmdArgs = [
+    "+@sSteamCmdForcePlatformType",
+    "windows",
     "+force_install_dir",
     path.resolve(serverPath),
     "+login",
