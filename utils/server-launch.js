@@ -104,42 +104,6 @@ function prepareSteamRuntime(serverPath, options = {}) {
     }
   }
 
-  // Create Engine/Binaries/ThirdParty/SteamCMD/Linux/steamcmd.sh so that the
-  // -automanagedmods flag can find and spawn steamcmd (mirrors what arkmanager does).
-  const steamCmdLinuxDir = path.join(steamCmdTargetDir, "Linux");
-  try {
-    fs.mkdirSync(steamCmdLinuxDir, { recursive: true });
-    const steamCmdScript = path.join(steamCmdLinuxDir, "steamcmd.sh");
-    if (!fs.existsSync(steamCmdScript)) {
-      // Prefer the bootstrapped steamcmd that was initialised during mod downloads.
-      const bootstrapScript =
-        "/tmp/steamcmd-home/.local/share/Steam/steamcmd/steamcmd.sh";
-      const systemSteamCmds = [
-        "/usr/games/steamcmd",
-        "/usr/local/bin/steamcmd",
-      ];
-      const systemSteamCmd = systemSteamCmds.find((p) => {
-        try {
-          return fs.existsSync(p);
-        } catch {
-          return false;
-        }
-      });
-      const target = fs.existsSync(bootstrapScript)
-        ? bootstrapScript
-        : systemSteamCmd;
-      if (target) {
-        fs.writeFileSync(
-          steamCmdScript,
-          `#!/bin/sh\nHOME=/tmp/steamcmd-home exec '${target}' "$@"\n`,
-          { mode: 0o755 },
-        );
-      }
-    }
-  } catch (_) {
-    // Non-fatal: -automanagedmods may not work if steamcmd.sh cannot be created.
-  }
-
   return { runtimeDir, env };
 }
 
