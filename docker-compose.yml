@@ -5,6 +5,11 @@ services:
     #image: professorshroom/plutopoint-ase-server-manager:beta # Use this tag if you want to use the beta version (only updated when a new beta version is released) Not recommended for production use, as beta versions may contain bugs or unfinished features.
     container_name: plutopoint-ase-server-manager
     restart: unless-stopped
+    ulimits:
+      nproc: 65535       # ARK spawns subprocesses; without this, fork() returns -1 and the server crashes
+      nofile:
+        soft: 1000000
+        hard: 1000000
     ports:
       - "3000:3000" # WebUI Port
       - "7777:7777/udp" # ARK Game Port
