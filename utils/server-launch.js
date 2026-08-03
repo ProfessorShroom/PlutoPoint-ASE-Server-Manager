@@ -87,6 +87,59 @@ function prepareSteamRuntime(serverPath, options = {}) {
   env.LD_LIBRARY_PATH = ldLibraryPath;
   env.STEAM_RUNTIME_ROOT = runtimeDir;
 
+  // Update ~/.steam/sdk64/steamclient.so to the current (post-steamcmd-run) steamclient.so.
+  // The entrypoint links sdk64 to the apt-package stub; refreshing it here ensures ARK loads
+  // the current build, whose crash-handler code is intact.
+  const steamclientSo = path.join(runtimeDir, "steamclient.so");
+  const userHome = env.HOME;
+  if (userHome && fs.existsSync(steamclientSo)) {
+    try {
+      const sdk64Dir = path.join(userHome, ".steam", "sdk64");
+      fs.mkdirSync(sdk64Dir, { recursive: true });
+      const sdk64Link = path.join(sdk64Dir, "steamclient.so");
+      fs.rmSync(sdk64Link, { force: true });
+      fs.symlinkSync(steamclientSo, sdk64Link);
+    } catch (_) {
+      // Non-fatal: proceed without the refreshed sdk64 symlink.
+    }
+  }
+
+  // Create Engine/Binaries/ThirdParty/SteamCMD/Linux/steamcmd.sh so that the
+  // -automanagedmods flag can find and spawn steamcmd (mirrors what arkmanager does).
+  const steamCmdLinuxDir = path.join(steamCmdTargetDir, "Linux");
+  try {
+    fs.mkdirSync(steamCmdLinuxDir, { recursive: true });
+    const steamCmdScript = path.join(steamCmdLinuxDir, "steamcmd.sh");
+    if (!fs.existsSync(steamCmdScript)) {
+      // Prefer the bootstrapped steamcmd that was initialised during mod downloads.
+      const bootstrapScript =
+        "/tmp/steamcmd-home/.local/share/Steam/steamcmd/steamcmd.sh";
+      const systemSteamCmds = [
+        "/usr/games/steamcmd",
+        "/usr/local/bin/steamcmd",
+      ];
+      const systemSteamCmd = systemSteamCmds.find((p) => {
+        try {
+          return fs.existsSync(p);
+        } catch {
+          return false;
+        }
+      });
+      const target = fs.existsSync(bootstrapScript)
+        ? bootstrapScript
+        : systemSteamCmd;
+      if (target) {
+        fs.writeFileSync(
+          steamCmdScript,
+          `#!/bin/sh\nHOME=/tmp/steamcmd-home exec '${target}' "$@"\n`,
+          { mode: 0o755 },
+        );
+      }
+    }
+  } catch (_) {
+    // Non-fatal: -automanagedmods may not work if steamcmd.sh cannot be created.
+  }
+
   return { runtimeDir, env };
 }
 
@@ -130,6 +183,7 @@ function buildStartupArgs(serverPath, serverName) {
   const launchArgs = modIds ? `${baseArgs}?GameModIds=${modIds}` : baseArgs;
   const serverArgs = [
     launchArgs,
+    "-automanagedmods",
     "-server",
     "-log",
     "-usecache",
