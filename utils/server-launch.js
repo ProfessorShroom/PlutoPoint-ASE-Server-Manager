@@ -43,6 +43,7 @@ function prepareSteamRuntime(serverPath, options = {}) {
     options.runtimeRoots ||
     [
       process.env.STEAM_RUNTIME_ROOT,
+      "/tmp/steamcmd-home/.local/share/Steam/steamcmd",
       "/usr/lib/steamcmd",
       "/usr/lib/x86_64-linux-gnu",
       "/usr/games",
