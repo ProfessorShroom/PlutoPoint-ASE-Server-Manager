@@ -35,7 +35,6 @@ test("buildStartupArgs adds mod IDs and disables BattlEye", () => {
   );
   assert.deepEqual(serverArgs, [
     launchArgs,
-    "-automanagedmods",
     "-server",
     "-log",
     "-usecache",

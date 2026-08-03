@@ -180,7 +180,6 @@ function buildStartupArgs(serverPath, serverName) {
   const launchArgs = modIds ? `${baseArgs}?GameModIds=${modIds}` : baseArgs;
   const serverArgs = [
     launchArgs,
-    "-automanagedmods",
     "-server",
     "-log",
     "-usecache",
